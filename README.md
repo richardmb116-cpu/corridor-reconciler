@@ -1,0 +1,49 @@
+# Media Drive corridor reconciler
+
+A single-page tool for Unleash Live Media Drive that finds images belonging to a corridor
+(KML, KMZ, GeoJSON, or a georeferenced 12kV distribution drawing) that were foldered elsewhere,
+shows coverage gaps along the line, and exports a move list. Everything runs in the browser;
+the Personal Access Token is held in memory only and never stored or sent anywhere except
+`mediadrive-api.unleashlive.com`.
+
+## Use it
+
+Open the hosted page (GitHub Pages, see below) or `index.html` locally, then:
+
+1. **Connect**: paste a `ul_pat_...` token (Profile > Developers) and the root folder ID from the
+   cloud.unleashlive.com URL. The scan walks every sub-folder and reads GPS and timestamps.
+2. **Add corridors**: KML/KMZ/GeoJSON lines, or waypoint files (Points are connected in sequence,
+   file or nearest-neighbour order; over-long segments are flagged as bridges across missing waypoints
+   and get a wider buffer). Site-map feeders are added from the **Site map** panel.
+3. **Time window** (optional): catches images without GPS.
+4. **Target folders**: one per corridor. Run the analysis.
+
+Outputs: misfiled list, strays, per-corridor and per-folder summaries, coverage gaps, a move-list CSV,
+a full report CSV, GeoJSON, and a ready-to-paste GraphQL `move` mutation. Nothing is moved by the tool.
+
+## Repository layout
+
+    index.html                 the tool (deployed as the GitHub Pages site)
+    tools/extract_site_map.py  pulls feeder linework out of a vector PDF by colour -> *.sitemap.json
+    tools/fetch_media_drive.py exports a Media Drive folder tree to JSON when the browser is blocked by CORS
+    tools/requirements.txt     Python dependencies (PyMuPDF)
+    sitemaps/                  extracted drawings live here locally; git-ignored (customer data)
+    docs/                      notes on the API, matching logic and design standards
+    .github/workflows/         Pages deployment
+
+## Deploy
+
+Pushing to `main` runs the Pages workflow. In the repository settings, under **Pages**, set
+**Source** to **GitHub Actions** once (the first workflow run prompts for it if not set).
+
+## CORS note
+
+If the hosted page cannot reach the Media Drive API from the browser, export with
+`tools/fetch_media_drive.py <ROOT_FOLDER_ID>` (token in `UNLEASH_PAT`) and load the JSON under
+**Advanced / offline options**.
+
+## Design
+
+Styled to the Unleash Live Design.md master (Brand Identity Guidelines v1.4): Chalk ground, white
+hairline-ruled cards, Onyx ink, Geist Mono caps labels, red confined to interaction and the critical
+state, secondary palette for status. STK Bureau Sans falls back to Inter until the licensed files are added.

@@ -1,0 +1,8 @@
+# Extracted site maps contain customer drawings: keep them out of the repository.
+sitemaps/*.json
+sitemaps/*.pdf
+# Media Drive exports contain asset paths and IDs.
+media-drive-items_*.json
+*.sitemap.json
+__pycache__/
+.DS_Store

@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KML Media Reconciler</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Unleash Live design tokens (Brand Identity Guidelines v1.4, Design.md master, Sept 2026) */
+  :root{
+    --white:#ffffff; --chalk:#f7f6f5; --stone:#ebeae9; --ash:#bec1c6; --onyx:#05081d; --crimson:#e51728; --slate:#7e818e;
+    --cool-200:#e6e7e8; --cool-400:#989ba5; --cool-600:#535769; --cool-700:#393d4f; --cool-900:#1d2030;
+    --crimson-50:#fff3f1; --crimson-600:#e51728; --crimson-700:#cf1f25; --crimson-800:#ac1e21;
+    --emerald-50:#edfbeb; --emerald-600:#44a249; --emerald-700:#3f8441;
+    --amber-50:#fff7ed; --amber-600:#d27b30; --amber-700:#ad6527;
+    --cobalt-50:#f1f7ff; --cobalt-500:#3182ed; --cobalt-600:#2865ca; --cobalt-700:#244da5; --indigo:#1d2c69;
+    --surface-page:var(--chalk); --surface-card:var(--white); --surface-sunken:var(--stone); --surface-inverse:var(--onyx);
+    --text-body:var(--onyx); --text-supporting:var(--slate); --text-link:var(--crimson);
+    --rule-hairline:var(--cool-200); --rule-heavy:var(--ash); --rule-accent:var(--onyx);
+    --accent:var(--crimson); --accent-hover:var(--crimson-700); --accent-press:var(--crimson-800); --focus-ring:var(--cobalt-500);
+    --font-sans:"STK Bureau Sans","Inter",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --tracking-body:-0.02em; --tracking-label:0.03em;
+    --radius-xs:2px; --radius-md:4px; --radius-lg:6px;
+    --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px;
+    --shadow-overlay:0 8px 24px rgba(5,8,29,.12);
+    --transition-color:color 200ms linear, background-color 200ms linear, border-color 200ms linear;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--surface-page);color:var(--text-body);font:400 14px/1.2 var(--font-sans);letter-spacing:var(--tracking-body)}
+  /* mono caps label: the system's section marker */
+  .lbl,label,th,.tab,.badge,.kpi .l,.step .n,summary,.status,.mono,thead{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-label);font-weight:400}
+  .status,.mono{text-transform:none;letter-spacing:0}
+  .bullet::before{content:"";display:inline-block;width:6px;height:6px;background:var(--crimson);margin-right:8px;vertical-align:1px;border-radius:0}
+  /* header: Onyx bar, full bleed, outside the grid */
+  header{background:var(--surface-inverse);color:var(--white);padding:18px 24px;display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  header .co{font-family:var(--font-mono);font-size:12px;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--white);display:block;margin-bottom:8px}
+  header h1{font-size:28px;line-height:1;margin:0;font-weight:400;letter-spacing:var(--tracking-body)}
+  header .sub{color:rgba(255,255,255,.5);font-size:14px;line-height:1.2;max-width:900px}
+  main{display:grid;grid-template-columns:360px 1fr;gap:var(--space-4);padding:var(--space-4);min-height:calc(100vh - 54px)}
+  @media (max-width:980px){main{grid-template-columns:1fr}}
+  .panel{background:var(--surface-card);border:1px solid var(--rule-hairline);border-radius:var(--radius-md);padding:var(--space-4)}
+  .panel.accent{border-top:2px solid var(--rule-accent)}
+  .step{display:flex;align-items:baseline;gap:10px;margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--rule-hairline)}
+  .step .n{font-size:12px;color:var(--text-body)}
+  .step .n::before{content:"";display:inline-block;width:6px;height:6px;background:var(--crimson);margin-right:8px;vertical-align:1px}
+  .step h3{margin:0;font-size:16px;font-weight:400;line-height:1.1}
+  label{display:block;font-size:10px;color:var(--text-supporting);margin:var(--space-3) 0 var(--space-1)}
+  input[type=text],input[type=password],input[type=number],input[type=datetime-local],select,textarea{
+    width:100%;padding:8px 10px;border:1px solid var(--ash);border-radius:var(--radius-xs);font:400 14px/1.2 var(--font-sans);letter-spacing:var(--tracking-body);background:var(--white);color:var(--text-body);transition:var(--transition-color)}
+  input.sm,select.sm{padding:4px 6px;font-size:12px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--focus-ring);outline-offset:2px;border-color:var(--onyx)}
+  input[type=file]{font:400 12px var(--font-sans);color:var(--text-supporting)}
+  input[type=checkbox]{accent-color:var(--onyx)}
+  .row{display:flex;gap:var(--space-2)}
+  .row > *{flex:1}
+  button{font:400 14px/1.2 var(--font-sans);letter-spacing:var(--tracking-body);border:1px solid var(--ash);background:var(--white);color:var(--text-body);padding:8px 14px;border-radius:var(--radius-xs);cursor:pointer;transition:var(--transition-color)}
+  button:hover{background:var(--chalk)}
+  button:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  button.primary{background:var(--accent);color:var(--white);border-color:var(--accent)}
+  button.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+  button.primary:active{background:var(--accent-press);border-color:var(--accent-press)}
+  button.sm{padding:3px 8px;font-size:12px}
+  button.active{background:var(--stone);border-color:var(--onyx)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .hint{font-size:12px;line-height:1.2;color:var(--text-supporting);margin-top:var(--space-1)}
+  .stack{display:flex;flex-direction:column;gap:var(--space-4)}
+  .status{font-size:12px;line-height:1.3;padding:8px 10px;border-radius:var(--radius-xs);background:var(--surface-sunken);color:var(--text-body);margin-top:var(--space-2);white-space:pre-wrap;max-height:140px;overflow:auto;border:1px solid var(--rule-hairline)}
+  .status.err{background:var(--crimson-50);color:var(--crimson-800);border-color:var(--crimson-600)}
+  .status.ok{background:var(--emerald-50);color:var(--emerald-700);border-color:var(--emerald-600)}
+  #map{height:420px;border-radius:var(--radius-md);border:1px solid var(--rule-hairline)}
+  #map.picking{cursor:crosshair}
+  .leaflet-container{font-family:var(--font-sans)}
+  .leaflet-popup-content-wrapper,.leaflet-control-layers,.leaflet-bar{border-radius:var(--radius-md)!important;box-shadow:var(--shadow-overlay)!important}
+  /* StatBlock row */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0;margin:var(--space-3) 0;border:1px solid var(--rule-hairline);border-radius:var(--radius-md);overflow:hidden}
+  .kpi{padding:12px 14px;background:var(--white);border-right:1px solid var(--rule-hairline)}
+  .kpi:last-child{border-right:none}
+  .kpi .v{font-size:28px;line-height:1;color:var(--onyx);margin-top:6px}
+  .kpi .l{font-size:10px;color:var(--text-supporting)}
+  .kpi .l::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:1px;background:var(--slate)}
+  .kpi.ok .l::before{background:var(--emerald-600)} .kpi.warn .l::before{background:var(--amber-600)} .kpi.bad .l::before{background:var(--crimson-600)} .kpi.info .l::before{background:var(--cobalt-600)}
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--rule-hairline);margin:var(--space-3) 0;flex-wrap:wrap}
+  .tab{padding:8px 12px;border:none;background:none;border-bottom:2px solid transparent;border-radius:0;color:var(--text-supporting);font-size:11px;margin-bottom:-1px}
+  .tab:hover{background:none;color:var(--onyx)}
+  .tab.active{color:var(--onyx);border-bottom-color:var(--crimson)}
+  table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.2}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--rule-hairline);text-align:left;vertical-align:top}
+  th{position:sticky;top:0;background:var(--onyx);color:var(--white);font-size:10px;cursor:pointer;user-select:none}
+  tbody tr:nth-child(even) td{background:var(--chalk)}
+  .tablewrap{max-height:460px;overflow:auto;border:1px solid var(--rule-hairline);border-radius:var(--radius-md)}
+  /* StatusTag */
+  .badge{display:inline-block;padding:2px 7px;border-radius:var(--radius-xs);font-size:10px;white-space:nowrap;border:1px solid transparent}
+  .badge::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px;background:currentColor}
+  .b-ok{background:var(--emerald-50);color:var(--emerald-700)} .b-warn{background:var(--amber-50);color:var(--amber-700)} .b-bad{background:var(--crimson-50);color:var(--crimson-700)} .b-info{background:var(--cobalt-50);color:var(--cobalt-700)} .b-idle{background:var(--chalk);color:var(--slate)}
+  .toolbar{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;margin:var(--space-2) 0}
+  .toolbar .spacer{flex:1}
+  .mono{font-family:var(--font-mono);font-size:12px}
+  details{border:1px solid var(--rule-hairline);border-radius:var(--radius-md);padding:8px 12px;margin-top:var(--space-2)}
+  summary{cursor:pointer;font-size:11px;color:var(--text-body)}
+  summary b{font-weight:400}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-supporting);margin-top:var(--space-2);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-label)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:var(--radius-xs);border:1px solid rgba(5,8,29,.15);vertical-align:middle;margin-right:6px;flex:none}
+  progress{width:100%;height:4px;accent-color:var(--onyx)}
+  a{color:var(--text-link)} a:hover{color:var(--crimson-700)}
+  .corr{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--rule-hairline);font-size:13px}
+  .corr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .corr select{flex:1.2;min-width:0}
+  .smgrid{display:grid;grid-template-columns:1fr 320px;gap:var(--space-3)}
+  @media (max-width:1200px){.smgrid{grid-template-columns:1fr}}
+  #smCanvas{width:100%;height:480px;border:1px solid var(--rule-hairline);border-radius:var(--radius-md);background:var(--stone);cursor:crosshair;display:block;touch-action:none}
+  .grp{display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0}
+  .grp input[type=text]{flex:1;min-width:0}
+  .cpt{font-size:12px}
+  .cpt td{padding:3px 4px} .cpt th{position:static}
+  .cpt input{width:100%;padding:2px 4px;font-size:12px}
+  .modebar{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center}
+  .modebar label{display:inline-flex;align-items:center;gap:4px;margin:0}
+  .sub-b{font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--text-body)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <span class="co bullet">Unleash Live</span>
+    <h1>Media Drive corridor reconciler</h1>
+  </div>
+  <div class="sub">Find images that belong to a corridor (KML, GeoJSON or a georeferenced site map) but were foldered elsewhere, spot coverage gaps, and export a move list. Runs entirely in your browser; the token is never stored.</div>
+</header>
+
+<main>
+  <!-- LEFT: inputs -->
+  <div class="stack">
+    <div class="panel">
+      <div class="step"><span class="n">01</span><h3>Connect to Media Drive</h3></div>
+      <label>Personal Access Token (ul_pat_…)</label>
+      <input type="password" id="pat" placeholder="Bearer token from Profile → Developers" autocomplete="off">
+      <label>Root folder ID to scan (recursive)</label>
+      <input type="text" id="rootId" placeholder="Folder ID from the cloud.unleashlive.com URL">
+      <div class="hint">Everything under this folder will be listed, including sub-folders. Use the project or site folder that contains both the "right" and the "wrong" locations.</div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="btnScan">Scan Media Drive</button>
+        <button id="btnCancel" disabled>Cancel</button>
+      </div>
+      <progress id="prog" value="0" max="1" style="display:none;margin-top:8px"></progress>
+      <div class="status" id="scanStatus">Not connected.</div>
+      <details>
+        <summary>Advanced / offline options</summary>
+        <label>GraphQL endpoint</label>
+        <input type="text" id="endpoint" value="https://mediadrive-api.unleashlive.com/graphql">
+        <label>Extra metadata fields to request (comma separated, optional)</label>
+        <input type="text" id="extraFields" placeholder="e.g. dateTimeOriginal, takenAt">
+        <div class="hint">If Unleash Live exposes a capture-time field on <span class="mono">metadata</span>, add it here and it will be preferred over <span class="mono">createdAt</span>. Unknown fields will make the query fail, so add one at a time.</div>
+        <label>Or load items from a JSON export instead of calling the API</label>
+        <input type="file" id="jsonFile" accept=".json,application/json">
+        <div class="hint">Use the bundled <span class="mono">fetch_media_drive.py</span> helper if the browser is blocked by CORS. It writes a JSON file this page can read.</div>
+        <div class="row" style="margin-top:8px">
+          <button id="btnDemo">Load demo data</button>
+          <button id="btnSaveJson" disabled>Save scanned items as JSON</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <div class="step"><span class="n">02</span><h3>Add corridors</h3></div>
+      <label>KML, KMZ or GeoJSON (a line, or waypoints to connect)</label>
+      <input type="file" id="kmlFile" accept=".kml,.kmz,.geojson,.json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/geo+json,application/json" multiple>
+      <div class="status" id="kmlStatus">No corridor loaded.</div>
+      <label>If the file is waypoints (Points), connect them in this order</label>
+      <select id="wpOrder">
+        <option value="auto">Auto: by sequence property if present, else file order</option>
+        <option value="file">File order</option>
+        <option value="prop">By a property (name / id / sequence / time)</option>
+        <option value="nn">Nearest neighbour (untangle unordered points)</option>
+      </select>
+      <label>Segments longer than this are "bridges" across missing waypoints (m, blank = auto 2.5× median)</label>
+      <input type="number" id="bridgeLen" placeholder="auto" min="1" step="10">
+      <label>Buffer distance either side of the line (m)</label>
+      <input type="number" id="buffer" value="60" min="1" step="5">
+      <label>Wider buffer for bridged segments (m)</label>
+      <input type="number" id="bridgeBuffer" value="150" min="1" step="10">
+      <label>Coverage bin length along the line (m)</label>
+      <input type="number" id="binLen" value="50" min="5" step="5">
+      <div class="hint">Site-map feeders are added from the "Site map" panel on the right after georeferencing. All corridors are matched together; each image is assigned to the nearest one within its buffer.</div>
+    </div>
+
+    <div class="panel">
+      <div class="step"><span class="n">03</span><h3>Time window (optional)</h3></div>
+      <div class="row">
+        <div><label>From</label><input type="datetime-local" id="tFrom"></div>
+        <div><label>To</label><input type="datetime-local" id="tTo"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="timeStrict"> Also require GPS matches to fall inside the window</label>
+      <div class="hint">Images with no GPS that fall inside the window are flagged as "time-only" candidates. Leave blank to skip. Times are your local time.</div>
+      <button id="btnAutoTime" style="margin-top:8px">Suggest window from GPS matches</button>
+    </div>
+
+    <div class="panel">
+      <div class="step"><span class="n">04</span><h3>Corridors and their target folders</h3></div>
+      <div id="corrList"><div class="hint">No corridors yet. Load a KML/GeoJSON or georeference a site map.</div></div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnClearCorr" class="sm">Remove all corridors</button>
+      </div>
+      <div class="hint" id="targetHint">Images on a corridor that are NOT in that corridor's folder are listed as misfiled. Leave a folder blank to only report which feeder each image sits on.</div>
+      <button class="primary" id="btnAnalyse" style="margin-top:10px;width:100%" disabled>Run analysis</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: map, site map, results -->
+  <div class="stack">
+    <div class="panel">
+      <div id="map"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#2865ca"></span>Corridor (own colour per feeder)</span>
+        <span><span class="dot" style="background:#1d2c69;border:1px dashed #fff"></span>Bridged segment (missing waypoint)</span>
+        <span><span class="dot" style="background:#fff;border:2px solid #05081d"></span>Waypoint / control point</span>
+        <span><span class="dot" style="background:#44a249"></span>On corridor, in target folder</span>
+        <span><span class="dot" style="background:#e51728"></span>On corridor, misfiled</span>
+        <span><span class="dot" style="background:#d27b30"></span>In target folder, off corridor</span>
+        <span><span class="dot" style="background:#2865ca"></span>On corridor, no folder set</span>
+        <span><span class="dot" style="background:#989ba5"></span>Other images</span>
+        <span><span class="dot" style="background:#05081d;opacity:.6"></span>Coverage gap</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <details id="smDetails">
+        <summary><b>Site map</b>: georeference a feeder drawing (from <span class="mono">extract_site_map.py</span>) and turn its feeders into corridors</summary>
+        <div class="row" style="margin-top:8px">
+          <div><label>Site map JSON (*.sitemap.json)</label><input type="file" id="smFile" accept=".json,application/json"></div>
+          <div><label>&nbsp;</label><button id="btnSmSave" disabled>Save georeferenced site map (JSON)</button></div>
+        </div>
+        <div class="status" id="smStatus">No site map loaded.</div>
+        <div class="smgrid" style="margin-top:8px">
+          <div>
+            <div class="modebar">
+              <button class="sm active" id="modeCP">Add control point (click drawing, then map)</button>
+              <button class="sm" id="modeExcl">Exclude area (drag a box)</button>
+              <button class="sm" id="btnSmFit">Fit</button>
+              <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="smHighlight" checked> highlight enabled feeders</label>
+            </div>
+            <canvas id="smCanvas"></canvas>
+            <div class="hint">Scroll to zoom, drag to pan. Pick 3 or more landmarks you can find on both the drawing and the map (substation, road crossing, tank farm corner, well pad). More spread-out points give a better fit. Exclude detail insets, the legend and the title block so their linework is not placed on the ground.</div>
+          </div>
+          <div>
+            <span class="sub-b bullet">Feeder groups</span> <span class="hint" style="display:inline">(tick to use, rename freely)</span>
+            <div id="smGroups" style="max-height:220px;overflow:auto;margin:4px 0 8px"></div>
+            <span class="sub-b bullet">Control points</span>
+            <table class="cpt" id="cpTable"><thead><tr><th>#</th><th>Drawing x,y</th><th>Lat</th><th>Lng</th><th>Resid (m)</th><th></th></tr></thead><tbody></tbody></table>
+            <div class="hint" id="cpHint">Click a landmark on the drawing to start a pair.</div>
+            <div class="hint" id="exclList"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="primary" id="btnSmApply" disabled>Apply georeference → corridors</button>
+            </div>
+            <div class="status" id="smFit" style="display:none"></div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <div class="kpis" id="kpis">
+        <div class="kpi info"><div class="v" id="kImages">·</div><div class="l">Images scanned</div></div>
+        <div class="kpi ok"><div class="v" id="kOk">·</div><div class="l">Correctly filed</div></div>
+        <div class="kpi bad"><div class="v" id="kMis">·</div><div class="l">Misfiled (to move)</div></div>
+        <div class="kpi warn"><div class="v" id="kStray">·</div><div class="l">Strays in target</div></div>
+        <div class="kpi info"><div class="v" id="kOn">·</div><div class="l">On a corridor (any)</div></div>
+        <div class="kpi warn"><div class="v" id="kTime">·</div><div class="l">Time-only (no GPS)</div></div>
+        <div class="kpi bad"><div class="v" id="kGaps">·</div><div class="l">Coverage gaps</div></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="mis">Misfiled</button>
+        <button class="tab" data-tab="stray">Strays</button>
+        <button class="tab" data-tab="time">Time-only</button>
+        <button class="tab" data-tab="corr">By corridor</button>
+        <button class="tab" data-tab="gaps">Gaps</button>
+        <button class="tab" data-tab="segs">Segments</button>
+        <button class="tab" data-tab="all">All images</button>
+        <button class="tab" data-tab="folders">Folder summary</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="tableFilter" placeholder="Filter rows…" style="max-width:260px">
+        <span class="spacer"></span>
+        <button id="btnCsvMove" disabled>Export move list (CSV)</button>
+        <button id="btnCsvAll" disabled>Export full report (CSV)</button>
+        <button id="btnGeo" disabled>Export GeoJSON</button>
+        <button id="btnMutation" disabled>Copy GraphQL move mutation</button>
+      </div>
+      <div class="tablewrap"><table id="tbl"><thead></thead><tbody><tr><td class="hint">Run the analysis to see results.</td></tr></tbody></table></div>
+      <div class="hint" style="margin-top:8px">Nothing is moved by this tool. The CSV and the mutation text are for you (or support) to action after review.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+/* =========================================================
+   State
+   ========================================================= */
+const S = {
+  items: [], folders: new Map(), images: [],
+  corridors: [],      // {id,name,color,source,lines:[[ [lat,lng],... ]],bridged:[[bool]],waypoints,targetId,median,thresh}
+  results: null, cancel: false,
+  map: null, layers: {},
+  sort: {key:null, dir:1}, tab: 'mis',
+  sm: null,           // loaded site map
+  smView: {s:1,ox:0,oy:0}, smMode:'cp', pendingCP:null,
+};
+let corrSeq=1;
+const PALETTE=['#2865ca','#1d2c69','#3f8441','#ad6527','#393d4f','#3182ed','#3b673c','#844f23','#244da5','#535769'];
+const $ = id => document.getElementById(id);
+const fmt = n => (n==null||isNaN(n)) ? '' : (Math.abs(n)>=100 ? Math.round(n).toString() : n.toFixed(1));
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setStatus(id, msg, cls){ const el=$(id); el.textContent=msg; el.className='status'+(cls?' '+cls:''); }
+function rgbCss(c){ return Array.isArray(c)? `rgb(${c[0]},${c[1]},${c[2]})` : c; }
+function darker(c){ // make bright legend colours legible on a light map
+  if(!Array.isArray(c)) return c; const [r,g,b]=c; const lum=0.2126*r+0.7152*g+0.0722*b;
+  const k = lum>170 ? 0.6 : 0.85; return `rgb(${Math.round(r*k)},${Math.round(g*k)},${Math.round(b*k)})`;
+}
+
+/* =========================================================
+   Media Drive GraphQL client
+   ========================================================= */
+const BASE_FIELDS = ['id','teamId','location','type','tags','createdAt','updatedAt','deviceId','name','parentId','s3Path','mimeType'];
+const BASE_META = ['size','childItemsNumber','make','model','width','height','gpslat','gpslng','gpsalt','isPanoramic','duration'];
+const TOKEN_FIELDS = ['pk','sk','locationCreatedAt','teamId','teamIdType','createdAt','searchNameCreatedAt','searchName','deviceId','type'];
+function gqlLiteral(v){ if (v===null||v===undefined) return null; if (typeof v==='number'||typeof v==='boolean') return String(v); return JSON.stringify(String(v)); }
+function tokenLiteral(tok){ if(!tok) return ''; const parts=[]; for (const k of Object.keys(tok)){ const lit=gqlLiteral(tok[k]); if(lit!==null) parts.push(`${k}: ${lit}`); } return parts.length? `, nextToken: {${parts.join(', ')}}` : ''; }
+async function gql(query){
+  const res = await fetch($('endpoint').value.trim(), { method:'POST', headers:{'content-type':'application/json','authorization':'Bearer '+$('pat').value.trim()}, body: JSON.stringify({query}) });
+  if(!res.ok){ throw new Error(`HTTP ${res.status} ${res.statusText}`); }
+  const body = await res.json();
+  if(body.errors && body.errors.length){ throw new Error(body.errors.map(e=>e.message).join('; ')); }
+  return body.data;
+}
+function metaFields(){ const extra = $('extraFields').value.split(',').map(s=>s.trim()).filter(Boolean); return [...new Set([...BASE_META, ...extra])]; }
+async function getItem(id){ const d = await gql(`query GetLibraryItem { get(item:{id:${JSON.stringify(id)}}) { ${BASE_FIELDS.join(' ')} metadata { ${metaFields().join(' ')} } } }`); return d.get; }
+async function listAll(location, onPage){
+  let token=null, all=[];
+  do{
+    const q = `query list { list(sort: desc, location: ${JSON.stringify(location)}, limit: 200${tokenLiteral(token)}) {
+      items { ${BASE_FIELDS.join(' ')} metadata { ${metaFields().join(' ')} } }
+      nextToken { ${TOKEN_FIELDS.join(' ')} } } }`;
+    const d = await gql(q); const page = d.list?.items || []; all.push(...page);
+    token = d.list?.nextToken || null;
+    if (token && Object.values(token).every(v=>v===null||v===undefined)) token=null;
+    if(onPage) onPage(all.length);
+    if(S.cancel) throw new Error('Cancelled');
+  } while(token);
+  return all;
+}
+function isFolder(it){
+  const t = String(it.type||'').toUpperCase();
+  if (['F','D','FOLDER','DIR','DIRECTORY'].includes(t)) return true;
+  if (t==='I'||t==='V'||t==='IMAGE'||t==='VIDEO') return false;
+  if (it.metadata && it.metadata.childItemsNumber!=null) return true;
+  return !it.mimeType && !it.s3Path;
+}
+function isImage(it){
+  if (isFolder(it)) return false;
+  const t=String(it.type||'').toUpperCase();
+  if (t==='I'||t==='IMAGE') return true;
+  return /^image\//i.test(it.mimeType||'') || /\.(jpe?g|png|tiff?|dng|heic|webp)$/i.test(it.name||'');
+}
+function childLocation(folder){ const loc = (folder.location||'').replace(/#/g,'/'); return loc ? `${loc}/${folder.id}` : folder.id; }
+async function scan(){
+  S.cancel=false; $('btnScan').disabled=true; $('btnCancel').disabled=false; $('prog').style.display='block'; $('prog').removeAttribute('value');
+  try{
+    if(!$('pat').value.trim()) throw new Error('Enter your Personal Access Token first.');
+    const rootId=$('rootId').value.trim(); if(!rootId) throw new Error('Enter the root folder ID.');
+    setStatus('scanStatus','Fetching root folder…');
+    const root = await getItem(rootId);
+    if(!root) throw new Error('Root folder not found (check the ID and that the token has access to this team).');
+    root._isRoot=true;
+    const items=[root]; const queue=[root]; let folderCount=1, fileCount=0;
+    while(queue.length){
+      if(S.cancel) throw new Error('Cancelled');
+      const f=queue.shift();
+      setStatus('scanStatus',`Listing "${f.name||f.id}" … folders: ${folderCount}, files: ${fileCount}`);
+      let kids;
+      try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Listing "${f.name||f.id}" … ${n} items so far (folders: ${folderCount}, files: ${fileCount})`)); }
+      catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+      for(const k of kids){ items.push(k); if(isFolder(k)){ folderCount++; queue.push(k); } else fileCount++; }
+    }
+    ingest(items);
+    setStatus('scanStatus',`Scan complete: ${folderCount} folders, ${fileCount} files, ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+  }catch(e){
+    let msg = e.message||String(e);
+    if(/Failed to fetch|NetworkError|CORS/i.test(msg)) msg += '\n\nThis usually means the browser was blocked by CORS. Run fetch_media_drive.py to export a JSON file, then load it under "Advanced / offline options".';
+    setStatus('scanStatus','Error: '+msg,'err');
+  }finally{ $('btnScan').disabled=false; $('btnCancel').disabled=true; $('prog').style.display='none'; }
+}
+
+/* =========================================================
+   Ingest items
+   ========================================================= */
+const TIME_KEYS = ['dateTimeOriginal','datetimeoriginal','DateTimeOriginal','takenAt','capturedAt','captureTime','exifDate','dateTaken','originalDate'];
+function toMillis(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return v<1e11 ? v*1000 : v;
+  if(/^\d+$/.test(String(v))) return toMillis(Number(v));
+  const m=String(v).match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime();
+  const t=Date.parse(v); return isNaN(t)?null:t;
+}
+function ingest(items){
+  S.items=items; S.folders=new Map(); S.images=[];
+  for(const it of items){ if(isFolder(it)) S.folders.set(it.id,it); }
+  for(const it of items){
+    if(!isImage(it)) continue;
+    const md=it.metadata||{};
+    let lat=md.gpslat, lng=md.gpslng;
+    if(typeof lat==='string') lat=parseFloat(lat); if(typeof lng==='string') lng=parseFloat(lng);
+    if(md.gpslatref==='S' && lat>0) lat=-lat; if(md.gpslngref==='W' && lng>0) lng=-lng;
+    const gpsOk = Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0)&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
+    it._lat=gpsOk?lat:null; it._lng=gpsOk?lng:null;
+    let t=null, tsrc='createdAt';
+    for(const k of TIME_KEYS){ if(md[k]!=null){ t=toMillis(md[k]); if(t){tsrc=k;break;} } }
+    if(!t){ t=toMillis(it.createdAt); tsrc='createdAt'; }
+    it._time=t; it._timeSrc=tsrc; it._folderPath=folderPath(it.parentId);
+    S.images.push(it);
+  }
+  renderCorridors(); updateAnalyseBtn();
+  $('btnSaveJson').disabled = !S.items.length;
+  drawMap();
+}
+function folderPath(id){
+  const parts=[]; let cur=S.folders.get(id); let guard=0;
+  while(cur && guard++<50){ parts.unshift(cur.name||cur.id); if(cur._isRoot) break; cur=S.folders.get(cur.parentId); }
+  return parts.length? parts.join(' / ') : (id? `(outside scan: ${id})` : '(root)');
+}
+function folderOptions(sel){
+  const list=[...S.folders.values()].map(f=>({id:f.id,path:folderPath(f.id),count:S.images.filter(i=>i.parentId===f.id).length})).sort((a,b)=>a.path.localeCompare(b.path));
+  return `<option value="">(no target folder)</option>`+list.map(f=>`<option value="${esc(f.id)}" ${f.id===sel?'selected':''}>${esc(f.path)} (${f.count})</option>`).join('');
+}
+function updateAnalyseBtn(){ $('btnAnalyse').disabled = !(S.corridors.length && S.images.length); }
+
+/* =========================================================
+   Corridors
+   ========================================================= */
+function addCorridor(c){
+  c.id = c.id || ('c'+(corrSeq++));
+  c.color = c.color || PALETTE[(S.corridors.length)%PALETTE.length];
+  if(c.replaceKey){ S.corridors = S.corridors.filter(x=>x.replaceKey!==c.replaceKey || x.groupKey!==c.groupKey); }
+  S.corridors.push(c); renderCorridors(); updateAnalyseBtn(); drawMap(); return c;
+}
+function renderCorridors(){
+  const box=$('corrList');
+  if(!S.corridors.length){ box.innerHTML='<div class="hint">No corridors yet. Load a KML/GeoJSON or georeference a site map.</div>'; return; }
+  box.innerHTML=S.corridors.map(c=>`<div class="corr" data-id="${c.id}">
+      <span class="sw" style="background:${c.color}"></span>
+      <span class="nm" title="${esc(c.name)} (${c.source}, ${(corrLength(c)/1000).toFixed(1)} km)">${esc(c.name)}</span>
+      <select class="sm" data-role="target">${folderOptions(c.targetId)}</select>
+      <button class="sm" data-role="zoom" title="Zoom to corridor">⌖</button>
+      <button class="sm" data-role="del" title="Remove">✕</button>
+    </div>`).join('');
+  box.querySelectorAll('.corr').forEach(row=>{
+    const c=S.corridors.find(x=>x.id===row.dataset.id);
+    row.querySelector('[data-role=target]').onchange=e=>{ c.targetId=e.target.value||null; };
+    row.querySelector('[data-role=del]').onclick=()=>{ S.corridors=S.corridors.filter(x=>x!==c); renderCorridors(); updateAnalyseBtn(); drawMap(); };
+    row.querySelector('[data-role=zoom]').onclick=()=>{ if(S.map){ const b=[]; c.lines.forEach(l=>b.push(...l)); if(b.length) S.map.fitBounds(b,{padding:[20,20]}); } };
+  });
+}
+$('btnClearCorr').onclick=()=>{ S.corridors=[]; renderCorridors(); updateAnalyseBtn(); drawMap(); };
+function corrLength(c){ return c.lines.reduce((a,l)=>a+lineLength(l),0); }
+
+/* ---- Waypoint ordering ---- */
+const SEQ_KEYS = ['sequence','seq','order','index','idx','waypoint','wp','number','num','id','name','Name','timestamp','time','datetime'];
+function seqValue(props){
+  if(!props) return null;
+  for(const k of SEQ_KEYS){ if(props[k]!=null&&props[k]!==''){ const v=props[k]; if(typeof v==='number') return v; const num=String(v).match(/-?\d+(\.\d+)?/); if(num) return parseFloat(num[0]); const t=Date.parse(v); if(!isNaN(t)) return t; } }
+  return null;
+}
+function orderWaypoints(wps, mode){
+  if(mode==='file') return wps.slice();
+  if(mode==='nn'){
+    const dist=(a,b)=>Math.hypot(a.lat-b.lat,(a.lng-b.lng)*Math.cos(a.lat*Math.PI/180));
+    const chain=start=>{ const left=wps.filter(w=>w!==start); const out=[start]; let total=0;
+      while(left.length){ const last=out[out.length-1]; let bi=0,bd=Infinity; for(let i=0;i<left.length;i++){ const d=dist(left[i],last); if(d<bd){bd=d;bi=i;} } total+=bd; out.push(left.splice(bi,1)[0]); }
+      return {out,total}; };
+    let starts=wps;
+    if(wps.length>200){ const c={lat:wps.reduce((s,w)=>s+w.lat,0)/wps.length,lng:wps.reduce((s,w)=>s+w.lng,0)/wps.length}; starts=wps.slice().sort((a,b)=>dist(b,c)-dist(a,c)).slice(0,30); }
+    let best=null; for(const s of starts){ const r=chain(s); if(!best||r.total<best.total) best=r; }
+    return best.out;
+  }
+  const withSeq=wps.map(w=>({w,s:seqValue(w.props)}));
+  const usable = withSeq.filter(x=>x.s!=null).length>=wps.length*0.8;
+  if(mode==='prop' && !usable) throw new Error('Fewer than 80% of waypoints have a usable sequence property; pick another ordering.');
+  if(!usable) return wps.slice();
+  return withSeq.sort((a,b)=>(a.s??Infinity)-(b.s??Infinity)).map(x=>x.w);
+}
+function makeCorridor(lines, name, waypoints, source){
+  const segLens=[]; for(const l of lines){ for(let i=1;i<l.length;i++){ const a=proj(...l[i-1],l[0][0]), b=proj(...l[i],l[0][0]); segLens.push(Math.hypot(b[0]-a[0],b[1]-a[1])); } }
+  const sorted=segLens.slice().sort((a,b)=>a-b); const median=sorted.length? sorted[Math.floor(sorted.length/2)] : 0;
+  const userLen=+$('bridgeLen').value; const thresh = userLen>0 ? userLen : (waypoints ? median*2.5 : Infinity);
+  let k=0; const bridged=lines.map(l=>{ const arr=[]; for(let i=1;i<l.length;i++) arr.push(segLens[k++]>thresh); return arr; });
+  return {name, lines, waypoints:waypoints||null, bridged, median, thresh, source, targetId:null};
+}
+function reportCorridor(c){
+  const nBridged=c.bridged.flat().filter(Boolean).length;
+  let msg=`Added "${c.name}": ${c.lines.length} line(s), ${c.lines.reduce((a,l)=>a+l.length,0)} vertices, ${(corrLength(c)/1000).toFixed(2)} km.`;
+  if(c.waypoints) msg+=`\n${c.waypoints.length} waypoints connected; median spacing ${fmt(c.median)} m; ${nBridged} segment(s) longer than ${fmt(c.thresh)} m flagged as bridges across missing waypoints.`;
+  return msg;
+}
+function pointsToCorridor(wps, name, source){
+  if(wps.length<2) throw new Error('Need at least two waypoints to form a corridor');
+  const ordered=orderWaypoints(wps, $('wpOrder').value); ordered.forEach((w,i)=>w.seq=i+1);
+  return makeCorridor([ordered.map(w=>[w.lat,w.lng])], name, ordered, source);
+}
+/* ---- GeoJSON ---- */
+function loadGeoJson(text, fileName){
+  const gj=JSON.parse(text);
+  if(gj.kind==='sitemap') throw new Error('This is a site map JSON. Load it in the Site map panel on the right.');
+  const feats = gj.type==='FeatureCollection' ? gj.features : gj.type==='Feature' ? [gj] : [{type:'Feature',geometry:gj,properties:{}}];
+  const lines=[], wps=[]; let fi=0; const ring = coords => coords.map(c=>[c[1],c[0]]);
+  const walk=(g,props)=>{ if(!g) return; switch(g.type){
+      case 'LineString': if(g.coordinates.length>=2) lines.push(ring(g.coordinates)); break;
+      case 'MultiLineString': g.coordinates.forEach(c=>{ if(c.length>=2) lines.push(ring(c)); }); break;
+      case 'Polygon': if(g.coordinates[0]?.length>=2) lines.push(ring(g.coordinates[0])); break;
+      case 'MultiPolygon': g.coordinates.forEach(p=>{ if(p[0]?.length>=2) lines.push(ring(p[0])); }); break;
+      case 'Point': wps.push({lat:g.coordinates[1],lng:g.coordinates[0],alt:g.coordinates[2],name:props?.name??props?.Name??props?.id??`WP ${wps.length+1}`,props,fileIndex:fi++}); break;
+      case 'MultiPoint': g.coordinates.forEach(c=>wps.push({lat:c[1],lng:c[0],alt:c[2],name:props?.name??`WP ${wps.length+1}`,props,fileIndex:fi++})); break;
+      case 'GeometryCollection': g.geometries.forEach(x=>walk(x,props)); break; } };
+  for(const f of feats) walk(f.geometry, f.properties||{});
+  const name = gj.name || (lines.length ? feats.find(f=>f.geometry?.type!=='Point'&&f.properties?.name)?.properties?.name : null) || fileName;
+  let c;
+  if(lines.length && !wps.length) c=makeCorridor(lines, name, null, 'geojson');
+  else if(wps.length && !lines.length) c=pointsToCorridor(wps, name, 'geojson');
+  else if(lines.length && wps.length){ c=makeCorridor(lines, name, null, 'geojson'); c.waypoints=wps; }
+  else throw new Error('No LineString, Polygon or Point geometry found in the GeoJSON');
+  return addCorridor(c);
+}
+/* ---- KML / KMZ ---- */
+async function loadKml(file){
+  try{
+    let text;
+    if(/\.(geojson|json)$/i.test(file.name)){ const c=loadGeoJson(await file.text(), file.name); setStatus('kmlStatus',reportCorridor(c),'ok'); return; }
+    if(/\.kmz$/i.test(file.name)){ const zip=await JSZip.loadAsync(file); const entry=Object.values(zip.files).find(f=>/\.kml$/i.test(f.name)); if(!entry) throw new Error('KMZ contains no .kml file'); text=await entry.async('string'); }
+    else text=await file.text();
+    const doc=new DOMParser().parseFromString(text,'application/xml');
+    if(doc.querySelector('parsererror')) throw new Error('KML is not valid XML');
+    const lines=[];
+    const parseCoords = s => s.trim().split(/\s+/).map(tok=>tok.split(',').map(Number)).filter(c=>c.length>=2&&Number.isFinite(c[0])&&Number.isFinite(c[1])).map(c=>[c[1],c[0]]);
+    for(const el of doc.getElementsByTagName('*')){
+      const ln=el.localName;
+      if(ln==='LineString'||ln==='LinearRing'){ const c=el.getElementsByTagName('coordinates')[0]; if(!c) continue; const pts=parseCoords(c.textContent); if(pts.length>=2) lines.push(pts); }
+      else if(ln==='Track'){ const pts=[...el.children].filter(ch=>ch.localName==='coord').map(ch=>ch.textContent.trim().split(/\s+/).map(Number)).filter(c=>c.length>=2).map(c=>[c[1],c[0]]); if(pts.length>=2) lines.push(pts); }
+    }
+    const nameEl=doc.getElementsByTagName('name')[0]; const docName=nameEl?nameEl.textContent.trim():file.name;
+    let c;
+    if(!lines.length){
+      const wps=[]; let fi=0;
+      for(const pm of doc.getElementsByTagName('Placemark')){
+        const pt=[...pm.getElementsByTagName('Point')][0]; if(!pt) continue;
+        const co=pt.getElementsByTagName('coordinates')[0]; if(!co) continue;
+        const pts=parseCoords(co.textContent); if(!pts.length) continue;
+        const props={}; const n=pm.getElementsByTagName('name')[0]; if(n) props.name=n.textContent.trim();
+        const ts=pm.getElementsByTagName('when')[0]; if(ts) props.time=ts.textContent.trim();
+        for(const d of pm.getElementsByTagName('Data')){ const v=d.getElementsByTagName('value')[0]; if(v) props[d.getAttribute('name')]=v.textContent.trim(); }
+        for(const sd of pm.getElementsByTagName('SimpleData')){ props[sd.getAttribute('name')]=sd.textContent.trim(); }
+        wps.push({lat:pts[0][0],lng:pts[0][1],name:props.name||`WP ${wps.length+1}`,props,fileIndex:fi++});
+      }
+      if(wps.length<2) throw new Error('No LineString, LinearRing, gx:Track or Point geometry found');
+      c=pointsToCorridor(wps, docName, 'kml');
+    } else c=makeCorridor(lines, docName, null, 'kml');
+    addCorridor(c); setStatus('kmlStatus',reportCorridor(c),'ok');
+  }catch(e){ setStatus('kmlStatus','Error: '+e.message,'err'); }
+}
+$('kmlFile').onchange=async e=>{ for(const f of e.target.files) await loadKml(f); e.target.value=''; };
+
+/* =========================================================
+   Geometry (local equirectangular projection, metres)
+   ========================================================= */
+const R=6371008.8;
+function proj(lat,lng,lat0){ const k=Math.PI/180; return [R*lng*k*Math.cos(lat0*k), R*lat*k]; }
+function segDist(p,a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; const L2=dx*dx+dy*dy; let t = L2? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2 : 0; t=Math.max(0,Math.min(1,t)); const qx=a[0]+t*dx, qy=a[1]+t*dy; return {d:Math.hypot(p[0]-qx,p[1]-qy), t}; }
+function lineLength(line){ let s=0; const lat0=line[0][0]; for(let i=1;i<line.length;i++){ const a=proj(...line[i-1],lat0), b=proj(...line[i],lat0); s+=Math.hypot(b[0]-a[0],b[1]-a[1]); } return s; }
+function prepCorridor(c){
+  let offset=0; const out=[];
+  c.lines.forEach((line,li)=>{
+    const lat0=line[0][0]; const pts=line.map(([la,lo])=>proj(la,lo,lat0)); const cum=[0];
+    for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+    out.push({lat0,pts,cum,offset,len:cum[cum.length-1],raw:line,bridged:c.bridged[li]||[]}); offset+=cum[cum.length-1];
+  });
+  // corridor-wide projection for fast bbox rejection
+  const lat0=c.lines[0][0][0]; let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(const l of c.lines) for(const [la,lo] of l){ const [x,y]=proj(la,lo,lat0); if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; }
+  return {corridor:c, lines:out, totalLen:offset, lat0, bbox:[minx,miny,maxx,maxy]};
+}
+function nearestInCorridor(P, lat, lng, buffer, bridgeBuffer){
+  let best={d:Infinity, hit:false, margin:-Infinity};
+  const bb=P.bbox; const q=proj(lat,lng,P.lat0); const pad=Math.max(buffer==null?0:bridgeBuffer, 0);
+  if(buffer!=null && (q[0]<bb[0]-pad||q[0]>bb[2]+pad||q[1]<bb[1]-pad||q[1]>bb[3]+pad)) return best;
+  for(let li=0;li<P.lines.length;li++){
+    const L=P.lines[li]; const p=proj(lat,lng,L.lat0);
+    for(let i=1;i<L.pts.length;i++){
+      const a=L.pts[i-1], b=L.pts[i]; const br=!!L.bridged[i-1]; const buf = buffer==null ? Infinity : (br? bridgeBuffer : buffer);
+      if(buffer!=null){ // quick reject on segment bbox
+        if(p[0]<Math.min(a[0],b[0])-buf||p[0]>Math.max(a[0],b[0])+buf||p[1]<Math.min(a[1],b[1])-buf||p[1]>Math.max(a[1],b[1])+buf) continue;
+      }
+      const r=segDist(p,a,b); const margin=buf-r.d;
+      const better = buffer==null ? r.d<best.d : (margin>best.margin);
+      if(better){ best={d:r.d, line:li, seg:i-1, bridged:br, hit:margin>=0, margin, chain:L.offset+L.cum[i-1]+r.t*(L.cum[i]-L.cum[i-1])}; }
+    }
+  }
+  return best;
+}
+function nearestAny(preps, lat, lng, buffer, bridgeBuffer){
+  let best=null;
+  preps.forEach((P,ci)=>{ const n=nearestInCorridor(P,lat,lng,buffer,bridgeBuffer); if(n.d===Infinity) return; n.ci=ci; if(!best || (n.hit&&!best.hit) || (n.hit===best.hit && n.d<best.d)) best=n; });
+  return best;
+}
+function pointAtChain(lines, chain){
+  for(const L of lines){ const c=chain-L.offset; if(c<0||c>L.len+1e-6) continue;
+    for(let i=1;i<L.cum.length;i++){ if(c<=L.cum[i]){ const t=(c-L.cum[i-1])/((L.cum[i]-L.cum[i-1])||1); const a=L.raw[i-1], b=L.raw[i]; return [a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1])]; } } }
+  const last=lines[lines.length-1]; return last.raw[last.raw.length-1];
+}
+
+/* =========================================================
+   Analysis
+   ========================================================= */
+function analyse(){
+  if(!S.corridors.length||!S.images.length) return;
+  const buffer=+$('buffer').value||60, binLen0=+$('binLen').value||50, bridgeBuffer=Math.max(buffer, +$('bridgeBuffer').value||buffer);
+  const tFrom=$('tFrom').value?new Date($('tFrom').value).getTime():null;
+  const tTo=$('tTo').value?new Date($('tTo').value).getTime():null;
+  const strict=$('timeStrict').checked;
+  const inWindow = t => (tFrom==null&&tTo==null) ? null : (t!=null && (tFrom==null||t>=tFrom) && (tTo==null||t<=tTo));
+  const preps=S.corridors.map(prepCorridor);
+  const targetOf=new Map(); S.corridors.forEach((c,i)=>{ if(c.targetId) targetOf.set(c.targetId, i); });
+  const rows=[];
+  for(const im of S.images){
+    const r={item:im, id:im.id, name:im.name, folder:im._folderPath, parentId:im.parentId, lat:im._lat, lng:im._lng, time:im._time, timeSrc:im._timeSrc, dist:null, chain:null, seg:null, ci:null, corridor:'', bridged:false, inWin:inWindow(im._time), status:'other'};
+    if(im._lat!=null){
+      const n=nearestAny(preps,im._lat,im._lng,buffer,bridgeBuffer);
+      if(n){ r.dist=n.d; r.chain=n.chain; r.seg=n.seg; r.line=n.line; r.bridged=n.bridged; r.ci=n.ci; r.corridor=S.corridors[n.ci].name; }
+      const onLine = !!(n && n.hit) && (!strict || r.inWin!==false);
+      const corrTarget = onLine ? S.corridors[n.ci].targetId : null;
+      const folderCorr = targetOf.has(im.parentId) ? targetOf.get(im.parentId) : null; // corridor this folder belongs to, if any
+      if(onLine){
+        if(!corrTarget) r.status='oncorr';                          // on a corridor that has no folder set
+        else if(im.parentId===corrTarget) r.status='ok';
+        else r.status='misfiled';
+      } else {
+        if(folderCorr!=null) r.status='stray';                        // sits in a corridor's folder but not on that (or any) corridor
+        else r.status='other';
+      }
+      if(!onLine) { r.corridor = n ? `(nearest: ${S.corridors[n.ci].name})` : ''; }
+    } else {
+      if(r.inWin===true) r.status = targetOf.has(im.parentId) ? 'ok-time' : 'time-only';
+      else r.status='nogps';
+    }
+    rows.push(r);
+  }
+  // coverage bins + segments per corridor
+  const gaps=[], segs=[];
+  preps.forEach((P,ci)=>{
+    const c=S.corridors[ci]; let binLen=binLen0; if(P.totalLen/binLen>20000) binLen=Math.ceil(P.totalLen/20000);
+    const nBins=Math.max(1,Math.ceil(P.totalLen/binLen)); const bins=new Array(nBins).fill(0).map(()=>({all:0,inTarget:0}));
+    for(const r of rows){ if(r.ci===ci && (r.status==='ok'||r.status==='misfiled'||r.status==='oncorr')){ const b=bins[Math.min(nBins-1,Math.floor(r.chain/binLen))]; b.all++; if(r.status==='ok') b.inTarget++; } }
+    let cur=null;
+    bins.forEach((b,i)=>{ const gap = c.targetId ? b.inTarget===0 : b.all===0; const from=i*binLen, to=Math.min(P.totalLen,(i+1)*binLen);
+      if(gap){ if(cur&&cur.toBin===i-1){cur.to=to;cur.toBin=i;cur.recoverable+=b.all;} else {cur={ci,corridor:c.name,from,to,toBin:i,recoverable:b.all}; gaps.push(cur);} } });
+    const wps=c.waypoints;
+    P.lines.forEach((L,li)=>{ for(let i=1;i<L.pts.length;i++){
+      const wa = wps && P.lines.length===1 ? wps[i-1] : null, wb = wps && P.lines.length===1 ? wps[i] : null;
+      segs.push({ci, corridor:c.name, line:li, seg:i-1, from:(wa?.name)||`L${li+1} v${i}`, to:(wb?.name)||`L${li+1} v${i+1}`, chainFrom:L.offset+L.cum[i-1], len:L.cum[i]-L.cum[i-1], bridged:!!L.bridged[i-1], buffer:L.bridged[i-1]?bridgeBuffer:buffer, imgs:0, inTarget:0, misfiled:0, startLat:L.raw[i-1][0], startLng:L.raw[i-1][1], endLat:L.raw[i][0], endLng:L.raw[i][1]});
+    } });
+  });
+  for(const g of gaps){ const P=preps[g.ci]; g.len=g.to-g.from; g.start=pointAtChain(P.lines,g.from); g.end=pointAtChain(P.lines,g.to); g.mid=pointAtChain(P.lines,(g.from+g.to)/2); }
+  const segIndex=new Map(segs.map(s=>[s.ci+':'+s.line+':'+s.seg,s]));
+  for(const r of rows){ if(r.ci!=null && (r.status==='ok'||r.status==='misfiled'||r.status==='oncorr')){ const s=segIndex.get(r.ci+':'+r.line+':'+r.seg); if(s){ s.imgs++; if(r.status==='ok') s.inTarget++; else if(r.status==='misfiled') s.misfiled++; } } }
+  S.results={rows,gaps,segs,preps,buffer,bridgeBuffer};
+  renderKpis(); renderTable(); drawMap();
+  ['btnCsvMove','btnCsvAll','btnGeo','btnMutation'].forEach(id=>$(id).disabled=false);
+}
+function renderKpis(){
+  const R=S.results; const c=s=>R.rows.filter(r=>r.status===s).length;
+  $('kImages').textContent=R.rows.length; $('kOk').textContent=c('ok')+c('ok-time'); $('kMis').textContent=c('misfiled');
+  $('kStray').textContent=c('stray'); $('kOn').textContent=c('ok')+c('misfiled')+c('oncorr'); $('kTime').textContent=c('time-only'); $('kGaps').textContent=R.gaps.length;
+}
+
+/* =========================================================
+   Table
+   ========================================================= */
+const STATUS_LABEL={ok:['Correct','b-ok'],'ok-time':['In target (time match, no GPS)','b-ok'],misfiled:['Misfiled → move','b-bad'],stray:['Stray in target','b-warn'],oncorr:['On corridor (no folder set)','b-info'],'time-only':['Time-only candidate','b-warn'],nogps:['No GPS','b-idle'],other:['Other','b-idle']};
+const fmtTime = t => t? new Date(t).toLocaleString() : '';
+function renderTable(){
+  const R=S.results; if(!R) return; const thead=$('tbl').querySelector('thead'), tbody=$('tbl').querySelector('tbody');
+  const q=$('tableFilter').value.toLowerCase();
+  let cols, rows;
+  if(S.tab==='gaps'){
+    cols=[['Corridor','corridor'],['From (m)','from'],['To (m)','to'],['Length (m)','len'],['Photos misfiled elsewhere','recoverable'],['Start lat,lng','startStr'],['End lat,lng','endStr']];
+    rows=R.gaps.map(g=>({...g,startStr:g.start.map(v=>v.toFixed(6)).join(', '),endStr:g.end.map(v=>v.toFixed(6)).join(', ')}));
+  } else if(S.tab==='segs'){
+    cols=[['Corridor','corridor'],['From','from'],['To','to'],['Chainage (m)','chainFrom'],['Length (m)','len'],['Bridged?','bridgedStr'],['Buffer (m)','buffer'],['Images','imgs'],['In target','inTarget'],['Misfiled','misfiled']];
+    rows=R.segs.filter(s=>s.imgs>0||s.bridged||R.segs.length<=2000).map(s=>({...s,bridgedStr:s.bridged?'yes (missing waypoint)':'',mid:[(s.startLat+s.endLat)/2,(s.startLng+s.endLng)/2]}));
+  } else if(S.tab==='corr'){
+    cols=[['Corridor','corridor'],['Target folder','target'],['Images on corridor','n'],['Correct','ok'],['Misfiled','mis'],['No folder set','oncorr'],['Current folders of its images','folders']];
+    rows=S.corridors.map((c,ci)=>{ const rs=R.rows.filter(r=>r.ci===ci&&(r.status==='ok'||r.status==='misfiled'||r.status==='oncorr')); const fm=new Map(); rs.forEach(r=>fm.set(r.folder,(fm.get(r.folder)||0)+1));
+      return {corridor:c.name, target:c.targetId?folderPath(c.targetId):'', n:rs.length, ok:rs.filter(r=>r.status==='ok').length, mis:rs.filter(r=>r.status==='misfiled').length, oncorr:rs.filter(r=>r.status==='oncorr').length, folders:[...fm.entries()].sort((a,b)=>b[1]-a[1]).map(([f,n])=>`${f} (${n})`).join('; ')}; });
+  } else if(S.tab==='folders'){
+    cols=[['Folder','folder'],['Images','n'],['On a corridor','on'],['Off corridor','off'],['No GPS','nogps'],['Corridors seen','corrs']];
+    const m=new Map();
+    for(const r of R.rows){ const k=r.folder; const o=m.get(k)||{folder:k,n:0,on:0,off:0,nogps:0,_c:new Map()}; o.n++; if(r.lat==null)o.nogps++; else if(r.status==='ok'||r.status==='misfiled'||r.status==='oncorr'){o.on++; o._c.set(r.corridor,(o._c.get(r.corridor)||0)+1);} else o.off++; m.set(k,o); }
+    rows=[...m.values()].map(o=>({...o,corrs:[...o._c.entries()].sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c} (${n})`).join('; ')}));
+  } else {
+    cols=[['Status','status'],['File','name'],['Current folder','folder'],['Corridor','corridor'],['Dist (m)','dist'],['Chainage (m)','chain'],['Segment','segStr'],['Time','time'],['Lat','lat'],['Lng','lng'],['ID','id']];
+    const f={mis:r=>r.status==='misfiled',stray:r=>r.status==='stray',time:r=>r.status==='time-only'||r.status==='ok-time',all:()=>true}[S.tab];
+    const segOf=r=>{ if(r.ci==null||r.seg==null) return ''; const s=R.segs.find(s=>s.ci===r.ci&&s.line===r.line&&s.seg===r.seg); return s? (r.bridged?'⚠ bridged ':'')+s.from+' → '+s.to : ''; };
+    rows=R.rows.filter(f).map(r=>({...r, segStr:segOf(r)}));
+  }
+  if(q) rows=rows.filter(r=>JSON.stringify(Object.values(r).filter(v=>typeof v!=='object')).toLowerCase().includes(q));
+  if(S.sort.key){ const k=S.sort.key,d=S.sort.dir; rows.sort((a,b)=>{const x=a[k],y=b[k]; if(x==null)return 1; if(y==null)return -1; return (typeof x==='number'? x-y : String(x).localeCompare(String(y)))*d;}); }
+  thead.innerHTML='<tr>'+cols.map(([l,k])=>`<th data-k="${k}">${l}${S.sort.key===k?(S.sort.dir>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
+  thead.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; S.sort = S.sort.key===k? {key:k,dir:-S.sort.dir}:{key:k,dir:1}; renderTable(); });
+  const cell=(r,k)=>{
+    if(k==='status'){ const [l,c]=STATUS_LABEL[r.status]||[r.status,'b-info']; return `<span class="badge ${c}">${l}</span>`; }
+    if(k==='time') return esc(fmtTime(r.time));
+    if(k==='dist'||k==='chain'||k==='len'||k==='chainFrom'||k==='buffer') return fmt(r[k]);
+    if((k==='from'||k==='to') && typeof r[k]==='number') return fmt(r[k]);
+    if(k==='bridgedStr' && r.bridged) return `<span class="badge b-warn">${esc(r.bridgedStr)}</span>`;
+    if(k==='lat'||k==='lng') return r[k]==null?'':r[k].toFixed(6);
+    if(k==='id') return `<span class="mono">${esc(r.id)}</span>`;
+    return esc(r[k]);
+  };
+  tbody.innerHTML = rows.length? rows.slice(0,3000).map(r=>`<tr data-lat="${r.lat??r.mid?.[0]??''}" data-lng="${r.lng??r.mid?.[1]??''}">${cols.map(([,k])=>`<td>${cell(r,k)}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="11" class="hint">No rows.</td></tr>';
+  if(rows.length>3000) tbody.innerHTML+=`<tr><td colspan="11" class="hint">Showing first 3000 of ${rows.length} rows. Use the filter or export CSV.</td></tr>`;
+  tbody.querySelectorAll('tr[data-lat]').forEach(tr=>tr.onclick=()=>{ const la=+tr.dataset.lat, ln=+tr.dataset.lng; if(la&&ln&&S.map) S.map.setView([la,ln],18); });
+}
+$('tableFilter').oninput=renderTable;
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.tab=b.dataset.tab; S.sort={key:null,dir:1}; renderTable(); });
+
+/* =========================================================
+   Map
+   ========================================================= */
+function ensureMap(){
+  if(S.map) return;
+  if(typeof L==='undefined'){ if(!S._mapWarned){ S._mapWarned=true; $('map').innerHTML='<div class="hint" style="padding:16px">Map unavailable (the Leaflet library could not be loaded, check internet access). Tables and exports still work.</div>'; } return; }
+  S.map=L.map('map',{preferCanvas:true}).setView([35.2,-119.5],6);
+  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'});
+  const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'});
+  const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+  const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'});
+  carto.addTo(S.map);
+  L.control.layers({'Streets (CARTO)':carto,'Light (CARTO)':cartoLight,'Satellite (Esri)':esriSat,'Topographic (Esri)':esriTopo},null,{position:'topright'}).addTo(S.map);
+  L.control.scale({imperial:false}).addTo(S.map);
+  S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
+  S.map.on('click', e=>onMapClick(e.latlng));
+}
+function drawMap(){
+  ensureMap(); if(!S.map) return; Object.values(S.layers).forEach(l=>l.clearLayers());
+  const bounds=[];
+  for(const c of S.corridors){
+    c.lines.forEach((line,li)=>{
+      const br=c.bridged?.[li]||[];
+      if(br.some(Boolean)){ for(let i=1;i<line.length;i++){ const seg=[line[i-1],line[i]]; L.polyline(seg, br[i-1] ? {color:'#1d2c69',weight:3,dashArray:'8 8'} : {color:c.color,weight:3}).bindPopup(`<b>${esc(c.name)}</b><br>${br[i-1]?'Bridged segment (missing waypoint), ':''}${fmt(lineLength(seg))} m`).addTo(S.layers.corr); } }
+      else L.polyline(line,{color:c.color,weight:c.source==='sitemap'?2.5:3}).bindPopup(`<b>${esc(c.name)}</b>`).addTo(S.layers.corr);
+      bounds.push(line[0], line[line.length-1]);
+    });
+    if(c.waypoints){ for(const w of c.waypoints){ L.circleMarker([w.lat,w.lng],{radius:4,color:'#05081d',fillColor:'#fff',fillOpacity:1,weight:2}).bindPopup(`<b>${esc(w.name)}</b>${w.seq?` (#${w.seq})`:''}`).addTo(S.layers.corr); } }
+  }
+  const color={ok:'#44a249',misfiled:'#e51728',stray:'#d27b30',oncorr:'#2865ca',other:'#989ba5'};
+  const src = S.results? S.results.rows : S.images.map(im=>({lat:im._lat,lng:im._lng,name:im.name,folder:im._folderPath,status:'other'}));
+  for(const r of src){
+    if(r.lat==null) continue; const c=color[r.status]||'#9ca3af';
+    L.circleMarker([r.lat,r.lng],{radius:r.status==='other'?3:5,color:c,fillColor:c,fillOpacity:.85,weight:1})
+      .bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.folder)}<br>${r.corridor?`${esc(r.corridor)}<br>`:''}${r.dist!=null?`Dist ${fmt(r.dist)} m, chainage ${fmt(r.chain)} m${r.bridged?' (bridged segment)':''}<br>`:''}${STATUS_LABEL[r.status]?.[0]||''}`).addTo(S.layers.pts);
+    if(!S.corridors.length) bounds.push([r.lat,r.lng]);
+  }
+  if(S.results){ for(const g of S.results.gaps){ if(g.len<1) continue; const P=S.results.preps[g.ci]; const seg=[]; const n=Math.max(2,Math.min(200,Math.ceil(g.len/10)));
+    for(let i=0;i<=n;i++) seg.push(pointAtChain(P.lines,g.from+(g.len*i/n)));
+    L.polyline(seg,{color:'#05081d',weight:9,opacity:.45}).bindPopup(`<b>${esc(g.corridor)}</b><br>Gap: ${fmt(g.from)} to ${fmt(g.to)} m (${fmt(g.len)} m)<br>${g.recoverable} misfiled photo(s) fall here`).addTo(S.layers.gaps); } }
+  if(S.sm){ S.sm.controlPoints.forEach((cp,i)=>{ if(cp.lat!=null) L.circleMarker([cp.lat,cp.lng],{radius:7,color:'#05081d',fillColor:'#fe9c4c',fillOpacity:1,weight:2}).bindTooltip(`CP ${i+1}`,{permanent:true,direction:'right',offset:[8,0]}).addTo(S.layers.cp); }); }
+  if(bounds.length && !S._fitted){ S.map.fitBounds(bounds,{padding:[20,20]}); S._fitted=true; }
+  else if(bounds.length && S.corridors.length && S._lastCorrCount!==S.corridors.length){ S.map.fitBounds(bounds,{padding:[20,20]}); }
+  S._lastCorrCount=S.corridors.length;
+}
+function onMapClick(latlng){
+  if(S.pendingCP==null || !S.sm) return;
+  const cp=S.sm.controlPoints[S.pendingCP]; cp.lat=+latlng.lat.toFixed(7); cp.lng=+latlng.lng.toFixed(7);
+  S.pendingCP=null; $('map').classList.remove('picking'); renderCP(); drawMap(); smDraw();
+}
+
+/* =========================================================
+   Site map: viewer, control points, georeferencing
+   ========================================================= */
+const smC=$('smCanvas'); const smCtx=smC.getContext('2d');
+function smResize(){ const r=smC.getBoundingClientRect(); const dpr=window.devicePixelRatio||1; smC.width=Math.round(r.width*dpr); smC.height=Math.round(r.height*dpr); smCtx.setTransform(dpr,0,0,dpr,0,0); smDraw(); }
+window.addEventListener('resize', smResize);
+$('smFile').onchange=async e=>{ const f=e.target.files[0]; if(f) await loadSiteMap(f); e.target.value=''; };
+async function loadSiteMap(file){
+  try{
+    const sm=JSON.parse(await file.text());
+    if(sm.kind!=='sitemap') throw new Error('Not a site map JSON (expected "kind":"sitemap" from extract_site_map.py)');
+    sm.controlPoints=sm.controlPoints||[]; sm.exclusions=sm.exclusions||[];
+    sm.groups.forEach(g=>{ if(g.enabled==null) g.enabled = !/orange|underground|demo|out of service|check legend|^colour/i.test(g.name); });
+    const img=new Image(); await new Promise((res,rej)=>{ img.onload=res; img.onerror=()=>rej(new Error('Could not decode the embedded page image')); img.src='data:image/png;base64,'+sm.imagePng; });
+    sm.img=img; sm.ptPerPx = sm.pageWidth/sm.imageWidth;   // PDF points per image pixel
+    S.sm=sm; S.pendingCP=null; $('smDetails').open=true;
+    setStatus('smStatus',`Loaded "${sm.name}" (${sm.source}, page ${sm.page}): ${sm.groups.length} colour groups, ${sm.controlPoints.length} control points, ${sm.exclusions.length} excluded areas.`,'ok');
+    renderGroups(); renderCP(); smResize(); smFit(); $('btnSmSave').disabled=false; updateApplyBtn();
+  }catch(e){ setStatus('smStatus','Error: '+e.message,'err'); }
+}
+function renderGroups(){
+  const box=$('smGroups'); const sm=S.sm;
+  box.innerHTML=sm.groups.map((g,i)=>`<div class="grp"><input type="checkbox" data-i="${i}" ${g.enabled?'checked':''}><span class="sw" style="background:${rgbCss(g.color)}"></span><input type="text" class="sm" data-i="${i}" value="${esc(g.name)}"><span class="hint" style="margin:0;white-space:nowrap" title="${g.pathCount} paths">${(g.totalLen/1000).toFixed(0)}k pt</span></div>`).join('');
+  box.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.onchange=()=>{ sm.groups[+cb.dataset.i].enabled=cb.checked; smDraw(); });
+  box.querySelectorAll('input[type=text]').forEach(t=>t.onchange=()=>{ sm.groups[+t.dataset.i].name=t.value.trim()||sm.groups[+t.dataset.i].name; });
+}
+function renderCP(){
+  const sm=S.sm; const tb=$('cpTable').querySelector('tbody');
+  const fit = sm.controlPoints.filter(c=>c.lat!=null).length>=2 ? solveTransform(sm) : null;
+  tb.innerHTML=sm.controlPoints.map((cp,i)=>{ const res = fit? fit.residuals[i] : null;
+    return `<tr><td>${i+1}</td><td class="mono">${cp.x.toFixed(0)}, ${cp.y.toFixed(0)}</td><td><input data-i="${i}" data-k="lat" value="${cp.lat??''}" placeholder="click map"></td><td><input data-i="${i}" data-k="lng" value="${cp.lng??''}"></td><td>${res==null?'':fmt(res)}</td><td><button class="sm" data-i="${i}">✕</button></td></tr>`; }).join('');
+  tb.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{ const cp=sm.controlPoints[+inp.dataset.i]; const v=parseFloat(inp.value); cp[inp.dataset.k]=isNaN(v)?null:v; if(S.pendingCP===+inp.dataset.i && cp.lat!=null&&cp.lng!=null){S.pendingCP=null;$('map').classList.remove('picking');} renderCP(); drawMap(); smDraw(); });
+  tb.querySelectorAll('button').forEach(b=>b.onclick=()=>{ sm.controlPoints.splice(+b.dataset.i,1); if(S.pendingCP!=null){S.pendingCP=null;$('map').classList.remove('picking');} renderCP(); drawMap(); smDraw(); });
+  const n=sm.controlPoints.filter(c=>c.lat!=null).length;
+  $('cpHint').textContent = S.pendingCP!=null ? `Control point ${S.pendingCP+1}: now click its position on the map (or type lat/lng).` : (n<2 ? `Click a landmark on the drawing to start a pair. ${n}/2 minimum placed.` : n<3 ? `${n} points: similarity fit (scale + rotation). Add a third for a full affine fit.` : `${n} points placed. RMS error ${fmt(fit.rms)} m; scale ${fmt(fit.mPerPt)} m per drawing point; rotation ${fit.rotDeg.toFixed(1)}°.`);
+  $('exclList').innerHTML = sm.exclusions.length ? 'Excluded areas: '+sm.exclusions.map((e,i)=>`<button class="sm" data-i="${i}" title="remove">${i+1} ✕</button>`).join(' ') : '';
+  $('exclList').querySelectorAll('button').forEach(b=>b.onclick=()=>{ sm.exclusions.splice(+b.dataset.i,1); renderCP(); smDraw(); });
+  updateApplyBtn();
+}
+function updateApplyBtn(){ $('btnSmApply').disabled = !(S.sm && S.sm.controlPoints.filter(c=>c.lat!=null).length>=2 && S.sm.groups.some(g=>g.enabled)); }
+/* viewer */
+function smFit(){ const sm=S.sm; if(!sm) return; const r=smC.getBoundingClientRect(); const s=Math.min(r.width/sm.imageWidth, r.height/sm.imageHeight); S.smView={s, ox:(r.width-sm.imageWidth*s)/2, oy:(r.height-sm.imageHeight*s)/2}; smDraw(); }
+$('btnSmFit').onclick=smFit;
+$('smHighlight').onchange=smDraw;
+function smDraw(){
+  const sm=S.sm; const r=smC.getBoundingClientRect(); smCtx.save(); smCtx.setTransform(window.devicePixelRatio||1,0,0,window.devicePixelRatio||1,0,0);
+  smCtx.clearRect(0,0,r.width,r.height);
+  if(!sm){ smCtx.fillStyle='#7e818e'; smCtx.font='13px Inter,system-ui'; smCtx.fillText('Load a *.sitemap.json to see the drawing here.',16,28); smCtx.restore(); return; }
+  const {s,ox,oy}=S.smView; smCtx.translate(ox,oy); smCtx.scale(s,s);
+  smCtx.drawImage(sm.img,0,0);
+  const k=1/sm.ptPerPx; // pt → px
+  if($('smHighlight').checked){ smCtx.lineWidth=Math.max(1.5/s, 1.2); smCtx.lineCap='round';
+    for(const g of sm.groups){ if(!g.enabled) continue; smCtx.strokeStyle=rgbCss(g.color); smCtx.beginPath();
+      for(const p of g.paths){ smCtx.moveTo(p[0][0]*k,p[0][1]*k); for(let i=1;i<p.length;i++) smCtx.lineTo(p[i][0]*k,p[i][1]*k); } smCtx.stroke(); } }
+  smCtx.fillStyle='rgba(229,23,40,.14)'; smCtx.strokeStyle='#e51728'; smCtx.lineWidth=1.5/s;
+  for(const e of sm.exclusions){ smCtx.fillRect(e.x0*k,e.y0*k,(e.x1-e.x0)*k,(e.y1-e.y0)*k); smCtx.strokeRect(e.x0*k,e.y0*k,(e.x1-e.x0)*k,(e.y1-e.y0)*k); }
+  if(S._rubber){ const e=S._rubber; smCtx.strokeRect(e.x0*k,e.y0*k,(e.x1-e.x0)*k,(e.y1-e.y0)*k); }
+  sm.controlPoints.forEach((cp,i)=>{ const x=cp.x*k, y=cp.y*k; const rad=9/s; smCtx.beginPath(); smCtx.arc(x,y,rad,0,Math.PI*2); smCtx.fillStyle=cp.lat!=null?'#fe9c4c':'#fff'; smCtx.fill(); smCtx.lineWidth=2/s; smCtx.strokeStyle='#05081d'; smCtx.stroke();
+    smCtx.fillStyle='#05081d'; smCtx.font=`${12/s}px 'Geist Mono',monospace`; smCtx.textAlign='center'; smCtx.textBaseline='middle'; smCtx.fillText(String(i+1),x,y); });
+  smCtx.restore();
+}
+function smToImg(ev){ const r=smC.getBoundingClientRect(); const {s,ox,oy}=S.smView; return [(ev.clientX-r.left-ox)/s, (ev.clientY-r.top-oy)/s]; }
+let smDrag=null;
+smC.addEventListener('pointerdown', ev=>{ if(!S.sm) return; smC.setPointerCapture(ev.pointerId); const [ix,iy]=smToImg(ev); smDrag={sx:ev.clientX,sy:ev.clientY,ox:S.smView.ox,oy:S.smView.oy,ix,iy,moved:false,excl:(S.smMode==='excl'||ev.shiftKey)}; });
+smC.addEventListener('pointermove', ev=>{ if(!smDrag) return; const dx=ev.clientX-smDrag.sx, dy=ev.clientY-smDrag.sy; if(Math.hypot(dx,dy)>3) smDrag.moved=true;
+  if(smDrag.excl){ const [ix,iy]=smToImg(ev); const p=S.sm.ptPerPx; S._rubber={x0:Math.min(smDrag.ix,ix)*p,y0:Math.min(smDrag.iy,iy)*p,x1:Math.max(smDrag.ix,ix)*p,y1:Math.max(smDrag.iy,iy)*p}; smDraw(); }
+  else if(smDrag.moved){ S.smView.ox=smDrag.ox+dx; S.smView.oy=smDrag.oy+dy; smDraw(); } });
+smC.addEventListener('pointerup', ev=>{ if(!smDrag) return; const d=smDrag; smDrag=null;
+  if(d.excl){ if(S._rubber && (S._rubber.x1-S._rubber.x0)>5 && (S._rubber.y1-S._rubber.y0)>5) S.sm.exclusions.push(S._rubber); S._rubber=null; renderCP(); smDraw(); return; }
+  if(!d.moved){ const p=S.sm.ptPerPx; S.sm.controlPoints.push({x:+(d.ix*p).toFixed(1), y:+(d.iy*p).toFixed(1), lat:null, lng:null}); S.pendingCP=S.sm.controlPoints.length-1; $('map').classList.add('picking'); renderCP(); smDraw(); $('map').scrollIntoView({behavior:'smooth',block:'nearest'}); } });
+smC.addEventListener('wheel', ev=>{ if(!S.sm) return; ev.preventDefault(); const r=smC.getBoundingClientRect(); const mx=ev.clientX-r.left, my=ev.clientY-r.top; const f=Math.exp(-ev.deltaY*0.0015); const v=S.smView; const ns=Math.max(0.02,Math.min(40,v.s*f)); v.ox=mx-(mx-v.ox)*(ns/v.s); v.oy=my-(my-v.oy)*(ns/v.s); v.s=ns; smDraw(); },{passive:false});
+$('modeCP').onclick=()=>{ S.smMode='cp'; $('modeCP').classList.add('active'); $('modeExcl').classList.remove('active'); smC.style.cursor='crosshair'; };
+$('modeExcl').onclick=()=>{ S.smMode='excl'; $('modeExcl').classList.add('active'); $('modeCP').classList.remove('active'); smC.style.cursor='cell'; };
+
+/* ---- transform: drawing (x, y down) → metres (E, N) → lat/lng ---- */
+function solveTransform(sm){
+  const cps=sm.controlPoints.filter(c=>c.lat!=null&&c.lng!=null); const n=cps.length; if(n<2) return null;
+  const lat0=cps.reduce((s,c)=>s+c.lat,0)/n, lng0=cps.reduce((s,c)=>s+c.lng,0)/n; const k=Math.PI/180, cosl=Math.cos(lat0*k);
+  const toEN=(lat,lng)=>[R*(lng-lng0)*k*cosl, R*(lat-lat0)*k];
+  const X=cps.map(c=>[c.x,-c.y]), Y=cps.map(c=>toEN(c.lat,c.lng));
+  let A; // E = A[0]x + A[1]y + A[2]; N = A[3]x + A[4]y + A[5]
+  if(n===2){ // similarity: E = a x - b y + tx ; N = b x + a y + ty
+    const [x1,y1]=X[0],[x2,y2]=X[1]; const [E1,N1]=Y[0],[E2,N2]=Y[1]; const dx=x2-x1, dy=y2-y1, dE=E2-E1, dN=N2-N1; const den=dx*dx+dy*dy;
+    const a=(dx*dE+dy*dN)/den, b=(dx*dN-dy*dE)/den; A=[a,-b,E1-a*x1+b*y1, b,a,N1-b*x1-a*y1];
+  } else { // least squares affine via normal equations
+    const M=[[0,0,0],[0,0,0],[0,0,0]], bE=[0,0,0], bN=[0,0,0];
+    for(let i=0;i<n;i++){ const v=[X[i][0],X[i][1],1]; for(let r=0;r<3;r++){ for(let c=0;c<3;c++) M[r][c]+=v[r]*v[c]; bE[r]+=v[r]*Y[i][0]; bN[r]+=v[r]*Y[i][1]; } }
+    const solve3=(M,b)=>{ const m=M.map((r,i)=>[...r,b[i]]); for(let i=0;i<3;i++){ let p=i; for(let r=i+1;r<3;r++) if(Math.abs(m[r][i])>Math.abs(m[p][i])) p=r; [m[i],m[p]]=[m[p],m[i]]; if(Math.abs(m[i][i])<1e-12) return null; for(let r=0;r<3;r++){ if(r===i) continue; const f=m[r][i]/m[i][i]; for(let c=i;c<4;c++) m[r][c]-=f*m[i][c]; } } return [m[0][3]/m[0][0],m[1][3]/m[1][1],m[2][3]/m[2][2]]; };
+    const sE=solve3(M,bE), sN=solve3(M,bN); if(!sE||!sN) return null; A=[...sE,...sN];
+  }
+  const apply=(x,y)=>{ const yy=-y; const E=A[0]*x+A[1]*yy+A[2], N=A[3]*x+A[4]*yy+A[5]; return [lat0+N/(R*k), lng0+E/(R*k*cosl)]; };
+  const residuals=sm.controlPoints.map(c=>{ if(c.lat==null) return null; const [la,lo]=apply(c.x,c.y); const [E,N]=toEN(la,lo), [E0,N0]=toEN(c.lat,c.lng); return Math.hypot(E-E0,N-N0); });
+  const rv=residuals.filter(v=>v!=null); const rms=Math.sqrt(rv.reduce((s,v)=>s+v*v,0)/rv.length);
+  const mPerPt=Math.sqrt(Math.abs(A[0]*A[4]-A[1]*A[3])); const rotDeg=Math.atan2(A[3],A[0])*180/Math.PI;
+  return {A, apply, residuals, rms, mPerPt, rotDeg, lat0, lng0};
+}
+function insideExcl(sm,x,y){ return sm.exclusions.some(e=>x>=e.x0&&x<=e.x1&&y>=e.y0&&y<=e.y1); }
+$('btnSmApply').onclick=()=>{
+  const sm=S.sm; const fit=solveTransform(sm); if(!fit){ setStatus('smFit','Could not solve the transform (control points may be collinear).','err'); $('smFit').style.display='block'; return; }
+  let added=0, dropped=0;
+  for(const g of sm.groups){
+    if(!g.enabled) continue;
+    const lines=[];
+    for(const p of g.paths){ let cur=[]; for(const [x,y] of p){ if(insideExcl(sm,x,y)){ if(cur.length>=2) lines.push(cur); cur=[]; dropped++; continue; } cur.push(fit.apply(x,y)); } if(cur.length>=2) lines.push(cur); }
+    if(!lines.length) continue;
+    const c=makeCorridor(lines, g.name, null, 'sitemap'); c.color=darker(g.color); c.replaceKey=sm.name; c.groupKey=g.key;
+    const prev=S.corridors.find(x=>x.replaceKey===sm.name&&x.groupKey===g.key); if(prev) c.targetId=prev.targetId;
+    addCorridor(c); added++;
+  }
+  S._fitted=false; drawMap();
+  setStatus('smFit',`Applied: ${added} feeder corridor(s) created from "${sm.name}". RMS control-point error ${fmt(fit.rms)} m, ${fmt(fit.mPerPt)} m per drawing point, rotation ${fit.rotDeg.toFixed(1)}°. ${dropped?dropped+' vertices dropped inside excluded areas.':''}\nNow assign a target folder to each feeder in step 4 and run the analysis.`,'ok'); $('smFit').style.display='block';
+};
+$('btnSmSave').onclick=()=>{ const {img,ptPerPx,...rest}=S.sm; download(`${S.sm.name}.sitemap.json`, JSON.stringify(rest),'application/json'); };
+
+/* =========================================================
+   Exports
+   ========================================================= */
+function download(name, text, type='text/plain'){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+const csvCell = v => { const s=v==null?'':String(v); return /[",\n]/.test(s)? '"'+s.replace(/"/g,'""')+'"' : s; };
+function csv(cols, rows){ return [cols.join(','), ...rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))].join('\r\n'); }
+function stamp(){ return new Date().toISOString().slice(0,16).replace(/[:T]/g,'-'); }
+function baseRow(r){ const c=r.ci!=null?S.corridors[r.ci]:null; const onC=r.status==='ok'||r.status==='misfiled'||r.status==='oncorr';
+  return {status:STATUS_LABEL[r.status]?.[0]||r.status, id:r.id, name:r.name, current_folder:r.folder, current_folder_id:r.parentId, corridor:onC&&c?c.name:'', nearest_corridor:c?c.name:'', target_folder:onC&&c&&c.targetId?folderPath(c.targetId):'', target_folder_id:onC&&c&&c.targetId?c.targetId:'', dist_to_line_m:r.dist==null?'':r.dist.toFixed(1), chainage_m:r.chain==null?'':r.chain.toFixed(1), on_bridged_segment:r.bridged?'yes':'', lat:r.lat??'', lng:r.lng??'', time_iso:r.time?new Date(r.time).toISOString():'', time_source:r.timeSrc, in_time_window:r.inWin==null?'':r.inWin, s3Path:r.item.s3Path||'', device:r.item.deviceId||''}; }
+$('btnCsvMove').onclick=()=>{ const rows=S.results.rows.filter(r=>r.status==='misfiled'||r.status==='time-only').map(baseRow); download(`move-list_${stamp()}.csv`, csv(Object.keys(baseRow(S.results.rows[0])), rows),'text/csv'); };
+$('btnCsvAll').onclick=()=>{
+  const rows=S.results.rows.map(baseRow); const blank=Object.fromEntries(Object.keys(rows[0]).map(k=>[k,'']));
+  const gapRows=S.results.gaps.map((g,i)=>({...blank,status:'COVERAGE GAP',id:`gap-${i+1}`,name:`${g.from.toFixed(0)} to ${g.to.toFixed(0)} m (${g.len.toFixed(0)} m)`,corridor:g.corridor,chainage_m:((g.from+g.to)/2).toFixed(1),lat:g.mid[0].toFixed(6),lng:g.mid[1].toFixed(6),device:`${g.recoverable} misfiled photos in this gap`}));
+  const segRows=S.results.segs.filter(s=>s.imgs>0||s.bridged).map(s=>({...blank,status:s.bridged?'SEGMENT (bridged, missing waypoint)':'SEGMENT',id:`${s.from} -> ${s.to}`,name:`${s.len.toFixed(0)} m, buffer ${s.buffer} m`,corridor:s.corridor,chainage_m:s.chainFrom.toFixed(1),on_bridged_segment:s.bridged?'yes':'',lat:s.startLat.toFixed(6),lng:s.startLng.toFixed(6),device:`${s.imgs} images on segment (${s.inTarget} in target, ${s.misfiled} misfiled)`}));
+  download(`kml-reconcile-report_${stamp()}.csv`, csv(Object.keys(rows[0]), [...rows,...gapRows,...segRows]),'text/csv');
+};
+$('btnGeo').onclick=()=>{
+  const feats=S.results.rows.filter(r=>r.lat!=null).map(r=>({type:'Feature',geometry:{type:'Point',coordinates:[r.lng,r.lat]},properties:{...baseRow(r)}}));
+  for(const c of S.corridors){ c.lines.forEach((line,li)=>{ const br=c.bridged?.[li]||[]; if(br.some(Boolean)){ for(let i=1;i<line.length;i++) feats.push({type:'Feature',geometry:{type:'LineString',coordinates:[line[i-1],line[i]].map(([la,lo])=>[lo,la])},properties:{kind:br[i-1]?'bridged-segment':'corridor-segment',corridor:c.name,segment:i}}); } else feats.push({type:'Feature',geometry:{type:'LineString',coordinates:line.map(([la,lo])=>[lo,la])},properties:{kind:'corridor',corridor:c.name,source:c.source}}); });
+    if(c.waypoints) for(const w of c.waypoints) feats.push({type:'Feature',geometry:{type:'Point',coordinates:[w.lng,w.lat]},properties:{kind:'waypoint',corridor:c.name,name:w.name,seq:w.seq??null}}); }
+  for(const g of S.results.gaps){ if(g.len<1) continue; const P=S.results.preps[g.ci]; const n=Math.max(2,Math.min(200,Math.ceil(g.len/10))); const seg=[]; for(let i=0;i<=n;i++){const p=pointAtChain(P.lines,g.from+g.len*i/n); seg.push([p[1],p[0]]);} feats.push({type:'Feature',geometry:{type:'LineString',coordinates:seg},properties:{kind:'gap',corridor:g.corridor,from_m:g.from,to_m:g.to,misfiled_here:g.recoverable}}); }
+  download(`kml-reconcile_${stamp()}.geojson`, JSON.stringify({type:'FeatureCollection',features:feats}),'application/geo+json');
+};
+$('btnMutation').onclick=async()=>{
+  const groups=new Map();
+  for(const r of S.results.rows){ if(r.status!=='misfiled') continue; const t=S.corridors[r.ci].targetId; if(!groups.has(t)) groups.set(t,[]); groups.get(t).push(r.id); }
+  if(!groups.size){ alert('No misfiled images to move.'); return; }
+  let text=`# POST each mutation to ${$('endpoint').value} with header Authorization: Bearer <PAT>\n`; let k=0;
+  for(const [t,ids] of groups){ text+=`\n# ${ids.length} image(s) → ${folderPath(t)} (${t})\n`; for(let i=0;i<ids.length;i+=50){ const c=ids.slice(i,i+50); text+=`mutation MoveItems${++k} {\n  move(moveItems: [${c.map(id=>`{id: ${JSON.stringify(id)}}`).join(', ')}], to: {id: ${JSON.stringify(t)}}) { id parentId location }\n}\n`; } }
+  try{ await navigator.clipboard.writeText(text); alert(`Copied ${k} mutation(s) to the clipboard.`); } catch{ download(`move-mutations_${stamp()}.graphql`, text); }
+};
+$('btnSaveJson').onclick=()=>download(`media-drive-items_${stamp()}.json`, JSON.stringify(S.items.map(({_lat,_lng,_time,_timeSrc,_folderPath,...rest})=>rest)),'application/json');
+$('jsonFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ let data=JSON.parse(await f.text()); if(data.kind==='sitemap') throw new Error('That is a site map JSON; load it in the Site map panel.'); if(!Array.isArray(data)) data=data.items||data.data?.items||[]; if(!data.length) throw new Error('No items array found');
+    const rootId=$('rootId').value.trim(); const root = data.find(i=>i.id===rootId) || data.find(i=>isFolder(i)&&!data.some(j=>j.id===i.parentId)); if(root) root._isRoot=true;
+    ingest(data); setStatus('scanStatus',`Loaded ${data.length} items from ${f.name}: ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+  }catch(err){ setStatus('scanStatus','Error reading JSON: '+err.message,'err'); }
+  e.target.value='';
+};
+
+/* =========================================================
+   Time helper
+   ========================================================= */
+$('btnAutoTime').onclick=()=>{
+  if(!S.corridors.length||!S.images.length){ alert('Add a corridor and scan first.'); return; }
+  const preps=S.corridors.map(prepCorridor), buf=+$('buffer').value||60, bbuf=Math.max(buf,+$('bridgeBuffer').value||buf);
+  const ts=S.images.filter(im=>im._lat!=null&&im._time&&(nearestAny(preps,im._lat,im._lng,buf,bbuf)||{}).hit).map(im=>im._time).sort((a,b)=>a-b);
+  if(!ts.length){ alert('No GPS images fall on a corridor with the current buffer.'); return; }
+  const pad=10*60*1000; const toLocal=t=>{const d=new Date(t-new Date(t).getTimezoneOffset()*60000); return d.toISOString().slice(0,16);};
+  $('tFrom').value=toLocal(ts[0]-pad); $('tTo').value=toLocal(ts[ts.length-1]+pad);
+};
+
+/* =========================================================
+   Demo data
+   ========================================================= */
+$('btnDemo').onclick=()=>{
+  const lat0=-33.90, lng0=150.95; const pts=[]; for(let i=0;i<=40;i++) pts.push([lat0+i*0.0009+Math.sin(i/5)*0.0005, lng0+i*0.0012]);
+  const wps=pts.map((p,i)=>({lat:p[0],lng:p[1],name:`WP${i}`,props:{sequence:i},fileIndex:i})).filter((w,i)=>i%4===0 && i!==24 && i!==28);
+  $('bridgeLen').value=''; S.corridors=[];
+  const cA=addCorridor(pointsToCorridor(wps.slice().reverse(),'Demo feeder A (waypoints)','geojson'));
+  const lineB=[]; for(let i=0;i<=20;i++) lineB.push([lat0+0.02+i*0.0003, lng0+0.06+i*0.0009]);
+  const cB=addCorridor(makeCorridor([lineB],'Demo feeder B (line)',null,'kml'));
+  setStatus('kmlStatus',reportCorridor(cA)+'\n'+reportCorridor(cB),'ok');
+  const t0=Date.parse('2026-09-10T09:00:00');
+  const mk=(id,name,parentId,lat,lng,t,type='I')=>({id,name,parentId,type,mimeType:type==='I'?'image/jpeg':null,s3Path:type==='I'?`demo/${name}`:null,createdAt:Math.floor(t/1000),location:`team1#root`,metadata:type==='I'?{gpslat:lat,gpslng:lng,make:'DJI',model:'M3E'}:{childItemsNumber:0}});
+  const items=[{id:'root',name:'Demo Project',type:'F',parentId:null,location:'team1',metadata:{childItemsNumber:3},_isRoot:true},
+    mk('fA','Site A - Feeder A','root',0,0,t0,'F'), mk('fB','Site B - Feeder B','root',0,0,t0,'F'), mk('fC','Unsorted uploads','root',0,0,t0,'F')];
+  let n=0; const along=(i,off)=>{ const a=pts[Math.floor(i)], b=pts[Math.min(pts.length-1,Math.floor(i)+1)], f=i-Math.floor(i); return [a[0]+f*(b[0]-a[0])+off, a[1]+f*(b[1]-a[1])]; };
+  for(let i=0;i<40;i+=0.2){ if(i>=14&&i<19) continue; const [la,lo]=along(i,(Math.random()-0.5)*0.0003); const folder = i<10||i>=26 ? 'fA' : (i<22?'fC':'fB'); items.push(mk(`img${n}`,`DJI_${String(1000+n).padStart(4,'0')}.JPG`,folder,la,lo,t0+i*45000)); n++; }
+  for(let k=0;k<6;k++){ items.push(mk(`stray${k}`,`DJI_${2000+k}.JPG`,'fA',lat0-0.01-k*0.001,lng0+0.02,t0+k*60000)); }
+  for(let k=0;k<4;k++){ const it=mk(`nogps${k}`,`DJI_${3000+k}.JPG`,'fC',null,null,t0+(15+k)*45000); it.metadata={}; items.push(it); }
+  for(let k=0;k<12;k++){ const p=lineB[Math.floor(k*20/12)]; items.push(mk(`b${k}`,`DJI_${4000+k}.JPG`, k<8?'fB':'fA', p[0]+(Math.random()-0.5)*0.0002, p[1], t0+3600000*5+k*30000)); }
+  $('rootId').value='root';
+  ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
+  setStatus('scanStatus',`Demo: ${items.length} items, ${S.images.length} images loaded. Click "Run analysis".`,'ok');
+};
+
+/* =========================================================
+   Wire up
+   ========================================================= */
+$('btnScan').onclick=scan; $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
+ensureMap(); smResize();
+</script>
+</body>
+</html>
