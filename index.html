@@ -222,11 +222,12 @@
   <div class="stack">
     <div class="panel accent" id="nbPanel">
       <div class="step"><span class="n">A</span><h3>Fix misfiled images from their neighbours</h3></div>
-      <div class="hint">Scan first (step 01); no corridor is needed. Each dot is an image, coloured by the folder it is in now. An image is ringed red when most of its neighbours (images close by on the ground, and the shots taken just before and after it) sit in a different folder. Select images, choose the folder they belong in, review the move list, then apply.</div>
+      <div class="hint">Scan first (step 01); no corridor is needed. With <b>Whole pole folders</b> (for Site &gt; Feeder &gt; Pole), each image's own folder is the thing that moves, with everything in it, into the feeder its neighbouring poles are in. Dots are coloured by feeder; a pole is ringed red when most of the poles around it (close by on the ground, and shot just before and after) sit under a different feeder. Select, choose the destination, review the move list, then apply.</div>
       <div class="toolbar">
         <label class="inl">Neighbours <input type="number" id="nbK" value="8" min="2" max="30" class="sm"></label>
         <label class="inl">Within (m) <input type="number" id="nbR" value="40" min="1" step="5" class="sm"></label>
         <label class="inl">Agreement % <input type="number" id="nbAgree" value="60" min="50" max="100" step="5" class="sm"></label>
+        <label class="inl">Move <select id="nbUnit" class="sm" style="width:auto"><option value="pole">Whole pole folders</option><option value="image">Single images</option></select></label>
         <label class="inl"><input type="checkbox" id="nbSeq" checked> Use shot order</label>
         <span class="spacer"></span>
         <button class="primary" id="btnNbFind" disabled>Find odd ones out</button>
@@ -246,11 +247,11 @@
         <button class="sm" id="btnNbSelClear" disabled>Clear selection</button>
       </div>
       <div class="row" style="align-items:flex-end">
-        <div style="flex:2"><label>Move selected images to</label><select id="nbTarget"><option value="">(choose folder)</option></select></div>
+        <div style="flex:2"><label id="nbTargetLbl">Move selected pole folders into</label><select id="nbTarget"><option value="">(choose folder)</option></select></div>
         <div><button id="btnNbAssign" disabled style="width:100%">Add to move list</button></div>
         <div><button id="btnNbAccept" disabled style="width:100%">Accept all suggestions</button></div>
       </div>
-      <div class="tablewrap" style="max-height:280px;margin-top:10px"><table id="nbTbl"><thead><tr><th></th><th>Image</th><th>Now in</th><th>Belongs in</th><th>Why</th><th>Shot</th><th></th></tr></thead><tbody><tr><td colspan="7" class="hint">Press "Find odd ones out", or select images on the map yourself.</td></tr></tbody></table></div>
+      <div class="tablewrap" style="max-height:280px;margin-top:10px"><table id="nbTbl"><thead><tr><th></th><th id="nbUnitHead">Pole folder</th><th>Images</th><th>Now in</th><th>Belongs in</th><th>Why</th><th>Shot</th><th></th></tr></thead><tbody><tr><td colspan="8" class="hint">Press "Find odd ones out", or select images on the map yourself.</td></tr></tbody></table></div>
       <div class="toolbar">
         <span id="nbPendInfo" class="hint">Move list is empty.</span>
         <span class="spacer"></span>
@@ -485,6 +486,8 @@ function folderPath(id){
   while(cur && guard++<50){ parts.unshift(cur.name||cur.id); if(cur._isRoot) break; cur=S.folders.get(cur.parentId); }
   return parts.length? parts.join(' / ') : (id? `(outside scan: ${id})` : '(root)');
 }
+function folderAncestors(id){ const out=[]; let cur=id, guard=0; while(cur!=null && guard++<50){ out.push(cur); const f=S.folders.get(cur); if(!f||f._isRoot) break; cur=f.parentId; } return out; }
+function isUnder(id, anc){ return folderAncestors(id).includes(anc); }
 function folderOptions(sel){
   const list=[...S.folders.values()].map(f=>({id:f.id,path:folderPath(f.id),count:S.images.filter(i=>i.parentId===f.id).length})).sort((a,b)=>a.path.localeCompare(b.path));
   return `<option value="">(no target folder)</option>`+list.map(f=>`<option value="${esc(f.id)}" ${f.id===sel?'selected':''}>${esc(f.path)} (${f.count})</option>`).join('');
@@ -692,10 +695,11 @@ function analyse(){
       if(n){ r.dist=n.d; r.chain=n.chain; r.seg=n.seg; r.line=n.line; r.bridged=n.bridged; r.ci=n.ci; r.corridor=S.corridors[n.ci].name; }
       const onLine = !!(n && n.hit) && (!strict || r.inWin!==false);
       const corrTarget = onLine ? S.corridors[n.ci].targetId : null;
-      const folderCorr = targetOf.has(im.parentId) ? targetOf.get(im.parentId) : null; // corridor this folder belongs to, if any
+      const tAnc = folderAncestors(im.parentId).find(f=>targetOf.has(f));
+      const folderCorr = tAnc!=null ? targetOf.get(tAnc) : null; // corridor whose target folder contains this image (at any depth), if any
       if(onLine){
         if(!corrTarget) r.status='oncorr';                          // on a corridor that has no folder set
-        else if(im.parentId===corrTarget) r.status='ok';
+        else if(isUnder(im.parentId,corrTarget)) r.status='ok';   // in the target folder or any sub-folder (e.g. a pole folder)
         else r.status='misfiled';
       } else {
         if(folderCorr!=null) r.status='stray';                        // sits in a corridor's folder but not on that (or any) corridor
@@ -1018,16 +1022,17 @@ $('btnDemo').onclick=()=>{
   setStatus('kmlStatus',reportCorridor(cA)+'\n'+reportCorridor(cB),'ok');
   const t0=Date.parse('2026-09-10T09:00:00');
   const mk=(id,name,parentId,lat,lng,t,type='I')=>({id,name,parentId,type,mimeType:type==='I'?'image/jpeg':null,s3Path:type==='I'?`demo/${name}`:null,createdAt:Math.floor(t/1000),location:`team1#root`,metadata:type==='I'?{gpslat:lat,gpslng:lng,make:'DJI',model:'M3E'}:{childItemsNumber:0}});
-  const items=[{id:'root',name:'Demo Project',type:'F',parentId:null,location:'team1',metadata:{childItemsNumber:3},_isRoot:true},
-    mk('fA','Site A - Feeder A','root',0,0,t0,'F'), mk('fB','Site B - Feeder B','root',0,0,t0,'F'), mk('fC','Unsorted uploads','root',0,0,t0,'F')];
+  const items=[{id:'root',name:'Demo Project',type:'F',parentId:null,location:'team1',metadata:{childItemsNumber:1},_isRoot:true}, mk('site1','Site 1','root',0,0,t0,'F'),
+    mk('fA','Feeder A','site1',0,0,t0,'F'), mk('fB','Feeder B','site1',0,0,t0,'F'), mk('fC','Unsorted uploads','site1',0,0,t0,'F')];
+  const poles=new Map(); const pole=(key,name,feeder)=>{ if(!poles.has(key)){ poles.set(key,`pole-${key}`); items.push(mk(`pole-${key}`,name,feeder,0,0,t0,'F')); } return poles.get(key); };
   let n=0; const along=(i,off)=>{ const a=pts[Math.floor(i)], b=pts[Math.min(pts.length-1,Math.floor(i)+1)], f=i-Math.floor(i); return [a[0]+f*(b[0]-a[0])+off, a[1]+f*(b[1]-a[1])]; };
   const p2=v=>String(v).padStart(2,'0'); const dji=(t,k)=>{ const d=new Date(t); return `DJI_${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}_${String(k).padStart(4,'0')}_V.JPG`; };
   for(let i=0;i<40;i+=0.2){ if(i>=14&&i<19) continue; const [la,lo]=along(i,(Math.random()-0.5)*0.0003); let folder = i<10||i>=26 ? 'fA' : (i<22?'fC':'fB');
-    if(folder==='fA' && n%13===5) folder='fB'; // shot on feeder A but uploaded under the wrong mission
-    items.push(mk(`img${n}`,dji(t0+i*45000,n+1),folder,la,lo,t0+i*45000)); n++; }
-  for(let k=0;k<6;k++){ items.push(mk(`stray${k}`,`DJI_${2000+k}.JPG`,'fA',lat0-0.01-k*0.001,lng0+0.02,t0+k*60000)); }
-  for(let k=0;k<4;k++){ const it=mk(`nogps${k}`,`DJI_${3000+k}.JPG`,'fC',null,null,t0+(15+k)*45000); it.metadata={}; items.push(it); }
-  for(let k=0;k<12;k++){ const p=lineB[Math.floor(k*20/12)]; items.push(mk(`b${k}`,`DJI_${4000+k}.JPG`, k<8?'fB':'fA', p[0]+(Math.random()-0.5)*0.0002, p[1], t0+3600000*5+k*30000)); }
+    const pk=Math.floor(i+1e-9); if(folder==='fA' && pk%7===3) folder='fB'; // whole pole shot on feeder A but uploaded under the wrong mission
+    items.push(mk(`img${n}`,dji(t0+i*45000,n+1),pole(`A${pk}`,`Pole A-${String(pk+1).padStart(3,'0')}`,folder),la,lo,t0+i*45000)); n++; }
+  for(let k=0;k<6;k++){ items.push(mk(`stray${k}`,`DJI_${2000+k}.JPG`,pole('S','Pole A-900','fA'),lat0-0.01-k*0.001,lng0+0.02,t0+k*60000)); }
+  for(let k=0;k<4;k++){ const it=mk(`nogps${k}`,`DJI_${3000+k}.JPG`,pole('N','Pole U-001','fC'),null,null,t0+(15+k)*45000); it.metadata={}; items.push(it); }
+  for(let k=0;k<12;k++){ const p=lineB[Math.floor(k*20/12)]; items.push(mk(`b${k}`,dji(t0+3600000*5+k*30000,500+k), pole(`B${Math.floor(k/3)}`,`Pole B-${String(Math.floor(k/3)+1).padStart(3,'0')}`, k<8?'fB':'fA'), p[0]+(Math.random()-0.5)*0.0002, p[1], t0+3600000*5+k*30000)); }
   $('rootId').value='root'; S.demo=true;
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
   setStatus('scanStatus',`Demo: ${items.length} items, ${S.images.length} images loaded. Click "Run analysis".`,'ok');
@@ -1035,14 +1040,22 @@ $('btnDemo').onclick=()=>{
 
 /* =========================================================
    Neighbour review: re-file images from the images around them
+   Unit = what moves: the image's own folder (a pole, moved whole into a feeder) or a single image.
+   Group = where a unit sits: the pole's parent folder, or the image's folder.
    ========================================================= */
-const NB = { map:null, layer:null, byId:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
+const NB = { map:null, layer:null, unit:'pole', byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
   colors:new Map(), hidden:new Set(), last:null, box:null, fitted:false, ran:false, targetTouched:false };
+const nbPole = () => NB.unit==='pole';
+const nbUnitOf = im => nbPole() ? im.parentId : im.id;
+const nbGroupNow = u => nbPole() ? S.folders.get(u)?.parentId : NB.byId.get(u)?.parentId;
+const nbGroupOf = u => NB.pending.has(u) ? NB.pending.get(u).to : nbGroupNow(u);
+const nbUnitName = u => nbPole() ? (S.folders.get(u)?.name||u) : (NB.byId.get(u)?.name||u);
+const nbMovable = u => nbPole() ? !!(S.folders.get(u) && !S.folders.get(u)._isRoot && S.folders.has(S.folders.get(u).parentId)) : NB.byId.has(u);
+const nbWord = (n=2) => nbPole() ? (n===1?'pole folder':'pole folders') : (n===1?'image':'images');
 function nbColor(fid){
   if(!NB.colors.has(fid)){ let h=(NB.colors.size*137.508+205)%360; if(h<25||h>335) h=(h+60)%360; NB.colors.set(fid,`hsl(${h.toFixed(0)} 70% 45%)`); }
   return NB.colors.get(fid);
 }
-const nbFolderOf = im => NB.pending.has(im.id) ? NB.pending.get(im.id).to : im.parentId;
 const nbTime = t => t ? new Date(t).toLocaleString([], {dateStyle:'short', timeStyle:'medium'}) : '';
 // Capture time for shot order: a capture-time metadata field, else the timestamp in a DJI file name. Upload time is ignored.
 function nbShotTime(im){
@@ -1051,16 +1064,25 @@ function nbShotTime(im){
   return m ? new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime() + (+m[7])*1e-3 : null;
 }
 function tally(arr){ const m=new Map(); for(const v of arr) m.set(v,(m.get(v)||0)+1); return [...m].sort((a,b)=>b[1]-a[1]); }
+// A pole folder landing next to one with the same name is worth a warning
+function nbClash(u,to){ if(!nbPole()) return false; const nm=S.folders.get(u)?.name; for(const f of S.folders.values()) if(f.parentId===to && f.id!==u && f.name===nm) return true; return false; }
 
 function nbReset(){
-  NB.byId=new Map(S.images.map(i=>[i.id,i])); NB.best.clear(); NB.flags.clear(); NB.sel.clear(); NB.pending.clear();
-  NB.hidden.clear(); NB.colors.clear(); NB.fitted=false; NB.ran=false; NB.last=null; NB.targetTouched=false;
-  [...new Set(S.images.map(i=>i.parentId))].sort((a,b)=>folderPath(a).localeCompare(folderPath(b))).forEach(nbColor);
-  const list=[...S.folders.values()].map(f=>({id:f.id,path:folderPath(f.id),n:S.images.filter(i=>i.parentId===f.id).length})).sort((a,b)=>a.path.localeCompare(b.path));
-  $('nbTarget').innerHTML='<option value="">(choose folder)</option>'+list.map(f=>`<option value="${esc(f.id)}">${esc(f.path)} (${f.n})</option>`).join('');
-  $('btnNbFind').disabled=!S.images.length; $('btnNbUndo').disabled=true; $('btnNbManifest').disabled=true; $('nbApplyStatus').style.display='none';
+  NB.byId=new Map(S.images.map(i=>[i.id,i])); NB.unitImgs=new Map();
+  for(const im of S.images){ const u=nbUnitOf(im); if(u==null) continue; if(!NB.unitImgs.has(u)) NB.unitImgs.set(u,[]); NB.unitImgs.get(u).push(im); }
+  NB.best.clear(); NB.flags.clear(); NB.sel.clear(); NB.pending.clear(); NB.hidden.clear(); NB.colors.clear();
+  NB.fitted=false; NB.ran=false; NB.targetTouched=false;
+  [...new Set([...NB.unitImgs.keys()].map(nbGroupNow))].sort((a,b)=>folderPath(a).localeCompare(folderPath(b))).forEach(nbColor);
+  // targets: in pole mode, folders that hold other folders (feeders); in image mode, any folder
+  const holds=new Set([...S.folders.values()].map(f=>f.parentId));
+  const list=[...S.folders.values()].filter(f=>!nbPole()||holds.has(f.id)).map(f=>({id:f.id,path:folderPath(f.id),
+    n: nbPole() ? [...S.folders.values()].filter(c=>c.parentId===f.id).length : S.images.filter(i=>i.parentId===f.id).length})).sort((a,b)=>a.path.localeCompare(b.path));
+  $('nbTarget').innerHTML='<option value="">(choose folder)</option>'+list.map(f=>`<option value="${esc(f.id)}">${esc(f.path)} (${f.n} ${nbPole()?'folders':'images'})</option>`).join('');
+  $('nbTargetLbl').textContent = nbPole() ? 'Move selected pole folders into' : 'Move selected images to';
+  $('nbUnitHead').textContent = nbPole() ? 'Pole folder' : 'Image';
+  $('btnNbFind').disabled=!S.images.length; $('btnNbUndo').disabled=!NB.last; $('btnNbManifest').disabled=!NB.last;
   const gps=S.images.filter(i=>i._lat!=null).length;
-  setStatus('nbStatus', S.images.length ? `${S.images.length} images in ${new Set(S.images.map(i=>i.parentId)).size} folders (${gps} with GPS). Press "Find odd ones out", or select images on the map yourself.` : 'Scan Media Drive or load demo data first.');
+  setStatus('nbStatus', S.images.length ? `${S.images.length} images (${gps} with GPS) in ${NB.unitImgs.size} ${nbWord()}. Press "Find odd ones out", or select on the map yourself.` : 'Scan Media Drive or load demo data first.');
   nbRender();
 }
 
@@ -1078,16 +1100,17 @@ function ensureNbMap(){
     NB.box={start:e.latlng, rect:L.rectangle([e.latlng,e.latlng],{color:'#3182ed',weight:1,fillOpacity:.12,interactive:false}).addTo(NB.map)}; });
   NB.map.on('mousemove', e=>{ if(NB.box) NB.box.rect.setBounds(L.latLngBounds(NB.box.start,e.latlng)); });
   const finish=()=>{ if(!NB.box) return; const b=NB.box.rect.getBounds(); NB.box.rect.remove(); NB.box=null; NB.map.dragging.enable();
-    for(const im of S.images){ if(im._lat!=null && !NB.hidden.has(nbFolderOf(im)) && b.contains([im._lat,im._lng])) NB.sel.add(im.id); }
+    for(const im of S.images){ const u=nbUnitOf(im); if(u!=null && im._lat!=null && nbMovable(u) && !NB.hidden.has(nbGroupOf(u)) && b.contains([im._lat,im._lng])) NB.sel.add(u); }
     nbRender(); };
   NB.map.on('mouseup', finish); document.addEventListener('mouseup', finish);
 }
 
 function nbTip(im){
-  const b=NB.best.get(im.id), p=NB.pending.get(im.id);
-  return `<b>${esc(im.name)}</b><br>Now in: ${esc(folderPath(im.parentId))}`+
+  const u=nbUnitOf(im), b=NB.best.get(u), p=NB.pending.get(u), n=NB.unitImgs.get(u)?.length||0;
+  return (nbPole()?`<b>${esc(nbUnitName(u))}</b> (${n} image${n===1?'':'s'})<br>${esc(im.name)}`:`<b>${esc(im.name)}</b>`)+
+    `<br>Now in: ${esc(folderPath(nbGroupNow(u)))}`+
     (p?`<br><b>Moving to: ${esc(folderPath(p.to))}</b>`:'')+
-    (b?`<br>Neighbours: ${b.votes} of ${b.total} in ${esc(folderPath(b.folder))}`:'')+
+    (b?`<br>Neighbours: ${b.votes} of ${b.total} votes for ${esc(folderPath(b.folder))}`:'')+
     (nbShotTime(im)?`<br>Shot ${esc(nbTime(nbShotTime(im)))}`:'');
 }
 function nbRender(){
@@ -1096,12 +1119,12 @@ function nbRender(){
     NB.layer.clearLayers(); const bounds=[]; const layers=[[],[],[]];
     for(const im of S.images){
       if(im._lat==null) continue; bounds.push([im._lat,im._lng]);
-      const f=nbFolderOf(im); if(NB.hidden.has(f)) continue;
-      const sel=NB.sel.has(im.id), pend=NB.pending.has(im.id), flag=NB.flags.has(im.id)&&!pend, c=nbColor(f);
+      const u=nbUnitOf(im), g=nbGroupOf(u); if(NB.hidden.has(g)) continue;
+      const sel=NB.sel.has(u), pend=NB.pending.has(u), flag=NB.flags.has(u)&&!pend, c=nbColor(g);
       const m=L.circleMarker([im._lat,im._lng],{radius:sel?8:(flag||pend?7:5), color:sel?'#3182ed':flag?'#e51728':pend?'#05081d':'#ffffff',
         weight:sel||flag||pend?3:1, fillColor:c, fillOpacity:.95});
       m.bindTooltip(()=>nbTip(im),{direction:'top',offset:[0,-6]});
-      m.on('click', ev=>{ L.DomEvent.stopPropagation(ev); if(NB.sel.has(im.id)) NB.sel.delete(im.id); else NB.sel.add(im.id); nbRender(); });
+      m.on('click', ev=>{ L.DomEvent.stopPropagation(ev); if(!nbMovable(u)) return; if(NB.sel.has(u)) NB.sel.delete(u); else NB.sel.add(u); nbRender(); });
       layers[sel?2:(flag||pend?1:0)].push(m);
     }
     layers.flat().forEach(m=>m.addTo(NB.layer)); // selected and flagged draw on top
@@ -1110,135 +1133,192 @@ function nbRender(){
   nbLegend(); nbSelInfo(); nbTable();
 }
 function nbLegend(){
-  const counts=tally(S.images.filter(i=>i._lat!=null).map(nbFolderOf)).sort((a,b)=>folderPath(a[0]).localeCompare(folderPath(b[0])));
-  $('nbLegend').innerHTML = counts.length ? counts.map(([f,n])=>`<label class="inl" title="Untick to hide this folder"><input type="checkbox" data-f="${esc(f)}" ${NB.hidden.has(f)?'':'checked'}><span class="sw" style="background:${nbColor(f)}"></span>${esc(folderPath(f))} (${n})</label>`).join('') : '';
+  const counts=tally(S.images.filter(i=>i._lat!=null&&nbUnitOf(i)!=null).map(i=>nbGroupOf(nbUnitOf(i)))).sort((a,b)=>folderPath(a[0]).localeCompare(folderPath(b[0])));
+  $('nbLegend').innerHTML = counts.map(([f,n])=>`<label class="inl" title="Untick to hide this folder"><input type="checkbox" data-f="${esc(f)}" ${NB.hidden.has(f)?'':'checked'}><span class="sw" style="background:${nbColor(f)}"></span>${esc(folderPath(f))} (${n})</label>`).join('');
   $('nbLegend').querySelectorAll('input').forEach(cb=>cb.onchange=()=>{ const f=cb.dataset.f; if(cb.checked) NB.hidden.delete(f); else NB.hidden.add(f); nbRender(); });
 }
 function nbSelInfo(){
-  const ims=[...NB.sel].map(id=>NB.byId.get(id)).filter(Boolean);
-  $('btnNbAssign').disabled=!ims.length; $('btnNbSelClear').disabled=!ims.length;
-  $('btnNbSelFlag').disabled=![...NB.flags.keys()].some(id=>!NB.pending.has(id));
+  const us=[...NB.sel];
+  $('btnNbAssign').disabled=!us.length; $('btnNbSelClear').disabled=!us.length;
+  $('btnNbSelFlag').disabled=![...NB.flags.keys()].some(u=>!NB.pending.has(u));
   $('btnNbAccept').disabled=$('btnNbSelFlag').disabled;
-  if(!ims.length){ $('nbSelInfo').textContent='Click a dot to select it. Shift-drag to select a box. Esc clears.'; NB.targetTouched=false; return; }
-  $('nbSelInfo').textContent=`${ims.length} selected, now in ${tally(ims.map(im=>folderPath(nbFolderOf(im)))).map(([p,c])=>`${p} (${c})`).join(', ')}`;
-  if(!NB.targetTouched){ // suggest the folder the neighbours of the selection are in
-    const sug=tally(ims.map(im=>NB.best.get(im.id)).filter(b=>b&&b.folder).map(b=>b.folder).filter(f=>!ims.every(im=>nbFolderOf(im)===f)));
-    if(sug.length && S.folders.has(sug[0][0])) $('nbTarget').value=sug[0][0];
+  if(!us.length){ $('nbSelInfo').textContent=`Click a dot to select ${nbPole()?'its whole pole folder':'it'}. Shift-drag to select a box. Esc clears.`; NB.targetTouched=false; return; }
+  const imgs=us.reduce((s,u)=>s+(NB.unitImgs.get(u)?.length||0),0);
+  $('nbSelInfo').textContent=`${us.length} ${nbWord(us.length)} selected${nbPole()?` (${imgs} images)`:''}, now in ${tally(us.map(u=>folderPath(nbGroupOf(u)))).map(([p,c])=>`${p} (${c})`).join(', ')}`;
+  if(!NB.targetTouched){ // suggest the folder the neighbours of the selection point to
+    const sug=tally(us.map(u=>NB.best.get(u)).filter(b=>b&&b.folder).map(b=>b.folder).filter(f=>!us.every(u=>nbGroupOf(u)===f)));
+    if(sug.length && [...$('nbTarget').options].some(o=>o.value===sug[0][0])) $('nbTarget').value=sug[0][0];
   }
 }
+function nbShotRange(u){ const ts=(NB.unitImgs.get(u)||[]).map(nbShotTime).filter(t=>t!=null).sort((a,b)=>a-b); if(!ts.length) return '';
+  return ts.length===1||ts[ts.length-1]-ts[0]<1000 ? nbTime(ts[0]) : `${nbTime(ts[0])} – ${new Date(ts[ts.length-1]).toLocaleTimeString([], {timeStyle:'medium'})}`; }
+function nbWhy(u){
+  const p=NB.pending.get(u), f=NB.flags.get(u), to=p?p.to:f.to; const bits=[p?p.reason:`${f.votes} of ${f.total} neighbour votes`];
+  const b=NB.best.get(u); if(nbPole() && b && b.mixed) bits.push(`mixed: only ${Math.round(b.consistent*100)}% of its images agree`);
+  if(nbClash(u,to)) bits.push('target already has a folder with this name');
+  return bits;
+}
 function nbTable(){
-  const ids=[...new Set([...NB.pending.keys(), ...NB.flags.keys()])].map(id=>NB.byId.get(id)).filter(Boolean);
-  const row=im=>{ const p=NB.pending.get(im.id), f=NB.flags.get(im.id), to=p?p.to:f.to;
-    const why=p? p.reason : `${f.votes} of ${f.total} neighbours`;
-    return {im,p,to,why,key:folderPath(to)+'\u0000'+(nbShotTime(im)||0)}; };
-  const rows=ids.map(row).sort((a,b)=>(b.p?1:0)-(a.p?1:0) || a.key.localeCompare(b.key));
+  const us=[...new Set([...NB.pending.keys(), ...NB.flags.keys()])];
+  const rows=us.map(u=>{ const p=NB.pending.get(u), to=p?p.to:NB.flags.get(u).to; const first=(NB.unitImgs.get(u)||[]).map(nbShotTime).filter(Boolean).sort((a,b)=>a-b)[0]||0;
+    return {u,p,to,key:folderPath(to)+'\u0000'+String(first).padStart(16,'0')}; }).sort((a,b)=>(b.p?1:0)-(a.p?1:0) || a.key.localeCompare(b.key));
   const tb=$('nbTbl').querySelector('tbody');
-  tb.innerHTML = rows.length ? rows.map(r=>`<tr data-id="${esc(r.im.id)}"><td>${r.p?'<span class="badge b-info">To move</span>':'<span class="badge b-bad">Suggested</span>'}</td>
-    <td class="mono">${esc(r.im.name)}${r.im._lat==null?' <span class="badge b-warn">no GPS</span>':''}</td><td>${esc(folderPath(r.im.parentId))}</td><td>${esc(folderPath(r.to))}</td>
-    <td>${esc(r.why)}</td><td class="mono">${esc(nbTime(nbShotTime(r.im)))}</td>
-    <td><button class="sm" data-act="${r.p?'drop':'add'}">${r.p?'Remove':'Add'}</button></td></tr>`).join('')
-    : `<tr><td colspan="7" class="hint">${NB.ran?'Nothing stands out with these settings. Try a larger radius or lower agreement, or select images on the map yourself.':'Press "Find odd ones out", or select images on the map yourself.'}</td></tr>`;
-  const n=NB.pending.size, nf=new Set([...NB.pending.values()].map(p=>p.to)).size;
-  $('nbPendInfo').textContent = n ? `${n} image(s) in the move list, going to ${nf} folder(s).` : 'Move list is empty.';
+  tb.innerHTML = rows.length ? rows.map(r=>{ const imgs=NB.unitImgs.get(r.u)||[], noGps=imgs.every(i=>i._lat==null), why=nbWhy(r.u);
+    return `<tr data-id="${esc(r.u)}"><td>${r.p?'<span class="badge b-info">To move</span>':'<span class="badge b-bad">Suggested</span>'}</td>
+    <td class="mono">${esc(nbUnitName(r.u))}${noGps?' <span class="badge b-warn">no GPS</span>':''}</td><td>${imgs.length}</td><td>${esc(folderPath(nbGroupNow(r.u)))}</td><td>${esc(folderPath(r.to))}</td>
+    <td>${esc(why[0])}${why.slice(1).map(w=>`<br><span class="badge b-warn">${esc(w)}</span>`).join('')}</td><td class="mono">${esc(nbShotRange(r.u))}</td>
+    <td><button class="sm" data-act="${r.p?'drop':'add'}">${r.p?'Remove':'Add'}</button></td></tr>`; }).join('')
+    : `<tr><td colspan="8" class="hint">${NB.ran?'Nothing stands out with these settings. Try a larger radius or lower agreement, or select on the map yourself.':'Press "Find odd ones out", or select on the map yourself.'}</td></tr>`;
+  const n=NB.pending.size, nf=new Set([...NB.pending.values()].map(p=>p.to)).size, ni=[...NB.pending.keys()].reduce((s,u)=>s+(NB.unitImgs.get(u)?.length||0),0);
+  $('nbPendInfo').textContent = n ? `${n} ${nbWord(n)}${nbPole()?` (${ni} images)`:''} in the move list, going to ${nf} folder(s).` : 'Move list is empty.';
   $('btnNbApply').disabled=!n; $('btnNbCsv').disabled=!n;
 }
 $('nbTbl').querySelector('tbody').addEventListener('click', e=>{
-  const tr=e.target.closest('tr[data-id]'); if(!tr) return; const im=NB.byId.get(tr.dataset.id); const act=e.target.dataset.act;
-  if(act==='add'){ const f=NB.flags.get(im.id); NB.pending.set(im.id,{to:f.to,reason:`${f.votes} of ${f.total} neighbours`}); nbRender(); return; }
-  if(act==='drop'){ NB.pending.delete(im.id); nbRender(); return; }
-  if(im._lat!=null && NB.map){ NB.map.setView([im._lat,im._lng], Math.max(NB.map.getZoom(),18)); NB.sel.clear(); NB.sel.add(im.id); nbRender(); }
+  const tr=e.target.closest('tr[data-id]'); if(!tr) return; const u=tr.dataset.id; const act=e.target.dataset.act;
+  if(act==='add'){ const f=NB.flags.get(u); NB.pending.set(u,{to:f.to,reason:`${f.votes} of ${f.total} neighbour votes`}); nbRender(); return; }
+  if(act==='drop'){ NB.pending.delete(u); nbRender(); return; }
+  const pts=(NB.unitImgs.get(u)||[]).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]);
+  if(pts.length && NB.map){ NB.map.fitBounds(pts,{padding:[80,80],maxZoom:19}); NB.sel.clear(); NB.sel.add(u); nbRender(); }
 });
 
 function nbFind(){
   const K=Math.max(2,+$('nbK').value||8), R=Math.max(1,+$('nbR').value||40);
   const agree=Math.min(1,Math.max(0.5,(+$('nbAgree').value||60)/100)), useSeq=$('nbSeq').checked;
   NB.best.clear(); NB.flags.clear();
-  const neigh=new Map(S.images.map(i=>[i.id,new Set()]));
-  const gps=S.images.filter(i=>i._lat!=null);
+  const unit=new Map(S.images.map(i=>[i.id,nbUnitOf(i)]));
+  const neigh=new Map(S.images.map(i=>[i.id,new Set()])); // neighbours from OTHER units only
+  const gps=S.images.filter(i=>i._lat!=null && unit.get(i.id)!=null);
   if(gps.length){ // K nearest within R metres, via a grid of R-sized cells
     const lat0=gps.reduce((s,i)=>s+i._lat,0)/gps.length, kx=111320*Math.cos(lat0*Math.PI/180), ky=110574;
     const grid=new Map(), key=(x,y)=>x+','+y, P=new Map();
     for(const im of gps){ const p={x:im._lng*kx,y:im._lat*ky}; P.set(im.id,p); const k=key(Math.floor(p.x/R),Math.floor(p.y/R)); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push(im); }
-    for(const im of gps){ const p=P.get(im.id), cx=Math.floor(p.x/R), cy=Math.floor(p.y/R), cand=[];
+    for(const im of gps){ const p=P.get(im.id), cx=Math.floor(p.x/R), cy=Math.floor(p.y/R), cand=[], mine=unit.get(im.id);
       for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) for(const o of grid.get(key(cx+dx,cy+dy))||[]){
-        if(o===im) continue; const q=P.get(o.id), d=Math.hypot(q.x-p.x,q.y-p.y); if(d<=R) cand.push([d,o]); }
+        if(unit.get(o.id)===mine) continue; const q=P.get(o.id), d=Math.hypot(q.x-p.x,q.y-p.y); if(d<=R) cand.push([d,o]); }
       cand.sort((a,b)=>a[0]-b[0]); for(const [,o] of cand.slice(0,K)) neigh.get(im.id).add(o.id); }
   }
   let seqUsed=0;
-  if(useSeq){ // the two shots either side from the same drone, within 2 minutes
+  if(useSeq){ // the nearest two shots either side, from the same drone but another unit, within 5 minutes
     const byDev=new Map();
-    for(const im of S.images){ const t=nbShotTime(im); if(t==null) continue; const d=im.deviceId||'?'; if(!byDev.has(d)) byDev.set(d,[]); byDev.get(d).push([t,im]); }
+    for(const im of S.images){ const t=nbShotTime(im); if(t==null||unit.get(im.id)==null) continue; const d=im.deviceId||'?'; if(!byDev.has(d)) byDev.set(d,[]); byDev.get(d).push([t,im]); }
     for(const list of byDev.values()){ list.sort((a,b)=>a[0]-b[0]);
-      for(let i=0;i<list.length;i++) for(let j=Math.max(0,i-2);j<=Math.min(list.length-1,i+2);j++){
-        if(j!==i && Math.abs(list[j][0]-list[i][0])<=120000){ neigh.get(list[i][1].id).add(list[j][1].id); seqUsed++; } } }
+      for(let i=0;i<list.length;i++){ const mine=unit.get(list[i][1].id);
+        for(const step of [-1,1]){ let got=0;
+          for(let j=i+step; j>=0 && j<list.length && got<2 && Math.abs(list[j][0]-list[i][0])<=300000; j+=step){
+            if(unit.get(list[j][1].id)===mine) continue; neigh.get(list[i][1].id).add(list[j][1].id); got++; seqUsed++; } } } }
   }
-  for(const im of S.images){
-    const ns=neigh.get(im.id); if(!ns.size) continue;
-    const [[best,votes]]=tally([...ns].map(id=>NB.byId.get(id).parentId));
-    NB.best.set(im.id,{folder:best,votes,total:ns.size});
-    if(best!==im.parentId && ns.size>=3 && votes/ns.size>=agree) NB.flags.set(im.id,{to:best,votes,total:ns.size});
+  // Each neighbour votes for the group its unit is in; votes are pooled per unit. The most confident flag is committed
+  // first and the votes recounted with that unit in its new group, so one misfiled pole cannot drag a correctly
+  // filed neighbour along with it.
+  const vote=assumed=>{
+    const groupFor=u=>assumed.has(u)?assumed.get(u):nbGroupNow(u);
+    const pooled=new Map(), perImgBest=new Map(), best=new Map(), flags=new Map();
+    for(const im of S.images){
+      const u=unit.get(im.id), ns=neigh.get(im.id); if(u==null||!ns.size) continue;
+      const t=tally([...ns].map(id=>groupFor(unit.get(id)))); perImgBest.set(im.id,t[0][0]);
+      if(!pooled.has(u)) pooled.set(u,new Map()); const m=pooled.get(u); for(const [g,c] of t) m.set(g,(m.get(g)||0)+c);
+    }
+    for(const [u,m] of pooled){
+      const t=[...m].sort((a,b)=>b[1]-a[1]), [bg,votes]=t[0], total=t.reduce((s,x)=>s+x[1],0);
+      const imgs=(NB.unitImgs.get(u)||[]).filter(i=>perImgBest.has(i.id)), consistent=imgs.length? imgs.filter(i=>perImgBest.get(i.id)===bg).length/imgs.length : 1;
+      best.set(u,{folder:bg,votes,total,consistent,mixed:imgs.length>=3&&consistent<0.7});
+      if(bg!=null && bg!==nbGroupNow(u) && total>=3 && votes/total>=agree && nbMovable(u) && S.folders.has(bg)) flags.set(u,{to:bg,votes,total});
+    }
+    return {best,flags};
+  };
+  const assumed=new Map(), committed=new Map(); let res=vote(assumed);
+  for(let guard=0; res.flags.size && guard<2000; guard++){
+    let top=null; for(const [u,f] of res.flags){ if(committed.has(u)) continue; const sc=f.votes/f.total*1e6+f.votes; if(!top||sc>top[2]) top=[u,f,sc]; }
+    if(!top) break;
+    committed.set(top[0],{...top[1],best:res.best.get(top[0])}); assumed.set(top[0],top[1].to);
+    res=vote(assumed);
+    // a committed unit whose new neighbours no longer back the move is released again
+    for(const [u,c] of [...committed]){ const b=res.best.get(u); if(!b || b.folder!==c.to || b.votes/b.total<agree){ committed.delete(u); assumed.delete(u); } }
+    if([...res.flags.keys()].every(u=>committed.has(u))) break;
   }
+  for(const [u,b] of res.best) NB.best.set(u,b);
+  for(const [u,c] of committed){ NB.flags.set(u,{to:c.to,votes:c.votes,total:c.total}); NB.best.set(u,c.best); }
   NB.ran=true;
-  const noGps=[...NB.flags.keys()].filter(id=>NB.byId.get(id)._lat==null).length;
+  const noGps=[...NB.flags.keys()].filter(u=>(NB.unitImgs.get(u)||[]).every(i=>i._lat==null)).length;
+  const mixed=[...NB.flags.keys()].filter(u=>NB.best.get(u).mixed).length;
   const byTo=tally([...NB.flags.values()].map(f=>folderPath(f.to)));
   setStatus('nbStatus', NB.flags.size
-    ? `${NB.flags.size} image(s) look misfiled: most of their neighbours are in another folder${noGps?` (${noGps} have no GPS and were matched by shot order)`:''}.\nSuggested: ${byTo.map(([p,c])=>`${c} → ${p}`).join(', ')}.\nReview them on the map or in the table, then "Accept all suggestions" or add them one by one.`
-    : `Nothing stands out: every image agrees with most of its neighbours.${useSeq&&!seqUsed?'\nShot order was not used: no capture times found (DJI file names or a capture-time field).':''}`,
+    ? `${NB.flags.size} ${nbWord(NB.flags.size)} look misfiled: most of the neighbouring ${nbPole()?'poles':'images'} are in another folder${noGps?` (${noGps} have no GPS and were matched by shot order)`:''}.\nSuggested: ${byTo.map(([p,c])=>`${c} → ${p}`).join(', ')}.`+
+      (mixed?`\n${mixed} of them are mixed (their images disagree); check those before moving the whole folder.`:'')+
+      `\nReview them on the map or in the table, then "Accept all suggestions" or add them one by one.`
+    : `Nothing stands out: every ${nbPole()?'pole':'image'} agrees with most of its neighbours.${useSeq&&!seqUsed?'\nShot order was not used: no capture times found (DJI file names or a capture-time field).':''}`,
     NB.flags.size?'':'ok');
   nbRender();
 }
 
-async function nbRunMoves(moves, done){ // moves: [{id,from,to}], moved ones are pushed to done as they succeed
+// moves: [{id,from,to}] of one kind ('pole' moves a folder, 'image' an image); moved ones are pushed to done as they succeed
+async function nbRunMoves(moves, kind, done){
   const groups=new Map(); for(const m of moves){ if(!groups.has(m.to)) groups.set(m.to,[]); groups.get(m.to).push(m); }
   for(const [to,list] of groups){
     for(let i=0;i<list.length;i+=50){
       const chunk=list.slice(i,i+50);
       setStatus('nbApplyStatus',`Moving ${done.length+1}–${done.length+chunk.length} of ${moves.length} → ${folderPath(to)} …`);
       if(!S.demo) await gql(`mutation MoveItems { move(moveItems: [${chunk.map(m=>`{id: ${JSON.stringify(m.id)}}`).join(', ')}], to: {id: ${JSON.stringify(to)}}) { id parentId location } }`);
-      for(const m of chunk){ const im=NB.byId.get(m.id);
-        done.push({id:m.id,name:im.name,from:m.from,from_path:folderPath(m.from),to:m.to,to_path:folderPath(m.to)});
-        im.parentId=m.to; im._folderPath=folderPath(m.to); }
+      for(const m of chunk){
+        const item = kind==='pole' ? S.folders.get(m.id) : S.images.find(i=>i.id===m.id);
+        done.push({id:m.id,kind,name:item?.name||m.id,from:m.from,from_path:folderPath(m.from),to:m.to,to_path:folderPath(m.to)});
+        if(item) item.parentId=m.to;
+      }
     }
   }
+  for(const im of S.images) im._folderPath=folderPath(im.parentId);
 }
-async function nbApply(moves, verb){
-  const btns=['btnNbApply','btnNbUndo','btnNbFind','btnNbAccept','btnNbAssign']; btns.forEach(b=>$(b).disabled=true);
+async function nbApply(moves, kind, verb){
+  const btns=['btnNbApply','btnNbUndo','btnNbFind','btnNbAccept','btnNbAssign','nbUnit']; btns.forEach(b=>$(b).disabled=true);
   $('nbApplyStatus').style.display='block'; const done=[];
-  try{ await nbRunMoves(moves,done); setStatus('nbApplyStatus',`${verb} ${done.length} image(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}. Save the run as JSON if you may want to undo it after closing this tab.`,'ok'); }
+  try{ await nbRunMoves(moves,kind,done); setStatus('nbApplyStatus',`${verb} ${done.length} ${kind==='pole'?'pole folder(s)':'image(s)'}${S.demo?' (demo: nothing was sent to Media Drive)':''}. Save the run as JSON if you may want to undo it after closing this tab.`,'ok'); }
   catch(e){ let msg=e.message||String(e); if(/Failed to fetch|NetworkError/i.test(msg)) msg+='. The browser may be blocked by CORS: export the CSV and move them in Media Drive instead.';
-    setStatus('nbApplyStatus',`Stopped after ${done.length} of ${moves.length}: ${msg}\nImages not moved are still in the move list.`,'err'); }
-  finally{ for(const d of done){ NB.pending.delete(d.id); NB.flags.delete(d.id); } nbRender(); btns.forEach(b=>$(b).disabled=false); $('btnNbFind').disabled=!S.images.length; }
+    setStatus('nbApplyStatus',`Stopped after ${done.length} of ${moves.length}: ${msg}\nAnything not moved is still in the move list.`,'err'); }
+  finally{ if(kind===NB.unit) for(const d of done){ NB.pending.delete(d.id); NB.flags.delete(d.id); }
+    btns.forEach(b=>$(b).disabled=false); nbRender(); $('btnNbFind').disabled=!S.images.length; }
   return done;
 }
 $('btnNbApply').onclick=async()=>{
-  const moves=[...NB.pending].map(([id,p])=>({id,from:NB.byId.get(id).parentId,to:p.to})).filter(m=>m.from!==m.to);
+  const moves=[...NB.pending].map(([u,p])=>({id:u,from:nbGroupNow(u),to:p.to})).filter(m=>m.from!==m.to);
   if(!moves.length) return;
   if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in step 01 to apply moves here, or export the move list as CSV.'); return; }
   const summary=tally(moves.map(m=>folderPath(m.to))).map(([p,c])=>`  ${c} → ${p}`).join('\n');
-  if(!confirm(`Move ${moves.length} image(s) in Media Drive?${S.demo?' (demo: nothing is sent)':''}\n\n${summary}\n\nYou can undo this run afterwards.`)) return;
-  const done=await nbApply(moves,'Moved');
-  if(done.length){ NB.last={applied_at:new Date().toISOString(),moves:done}; }
+  const clashes=moves.filter(m=>nbClash(m.id,m.to)).map(m=>nbUnitName(m.id));
+  const imgs=nbPole()? moves.reduce((s,m)=>s+(NB.unitImgs.get(m.id)?.length||0),0) : 0;
+  if(!confirm(`Move ${moves.length} ${nbWord(moves.length)}${nbPole()?`, whole, with their ${imgs} images`:''} in Media Drive?${S.demo?' (demo: nothing is sent)':''}\n\n${summary}`+
+    (clashes.length?`\n\nThe target already has a folder with the same name for: ${clashes.slice(0,10).join(', ')}${clashes.length>10?' …':''}`:'')+
+    `\n\nYou can undo this run afterwards.`)) return;
+  const done=await nbApply(moves,NB.unit,'Moved');
+  if(done.length) NB.last={applied_at:new Date().toISOString(),kind:NB.unit,moves:done};
   $('btnNbUndo').disabled=!NB.last; $('btnNbManifest').disabled=!NB.last;
 };
 $('btnNbUndo').onclick=async()=>{
   if(!NB.last) return; const moves=NB.last.moves.map(m=>({id:m.id,from:m.to,to:m.from}));
-  if(!confirm(`Put ${moves.length} image(s) back where they were?`)) return;
-  const done=await nbApply(moves,'Put back');
+  if(!confirm(`Put ${moves.length} ${NB.last.kind==='pole'?'pole folder(s)':'image(s)'} back where they were?`)) return;
+  const done=await nbApply(moves,NB.last.kind,'Put back');
   const back=new Set(done.map(d=>d.id)); NB.last.moves=NB.last.moves.filter(m=>!back.has(m.id)); if(!NB.last.moves.length) NB.last=null;
   $('btnNbUndo').disabled=!NB.last; $('btnNbManifest').disabled=!NB.last;
 };
 $('btnNbManifest').onclick=()=>{ if(NB.last) download(`move-run_${stamp()}.json`, JSON.stringify(NB.last,null,2),'application/json'); };
 $('btnNbCsv').onclick=()=>{
-  const rows=[...NB.pending].map(([id,p])=>{ const im=NB.byId.get(id); return {id, name:im.name, current_folder:folderPath(im.parentId), current_folder_id:im.parentId, target_folder:folderPath(p.to), target_folder_id:p.to, reason:p.reason, lat:im._lat??'', lng:im._lng??'', shot_time:nbShotTime(im)?new Date(nbShotTime(im)).toISOString():''}; });
+  const rows=[...NB.pending].map(([u,p])=>{ const imgs=NB.unitImgs.get(u)||[], g=imgs.find(i=>i._lat!=null);
+    return {kind:NB.unit==='pole'?'folder':'image', id:u, name:nbUnitName(u), images:imgs.length, current_folder:folderPath(nbGroupNow(u)), current_folder_id:nbGroupNow(u),
+      target_folder:folderPath(p.to), target_folder_id:p.to, reason:p.reason, warnings:nbWhy(u).slice(1).join('; '), lat:g?._lat??'', lng:g?._lng??'', shots:nbShotRange(u)}; });
   download(`neighbour-move-list_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv');
 };
 $('btnNbFind').onclick=nbFind;
-$('btnNbSelFlag').onclick=()=>{ for(const id of NB.flags.keys()) if(!NB.pending.has(id)) NB.sel.add(id); nbRender(); };
+$('nbUnit').onchange=e=>{
+  if(NB.pending.size && !confirm('Switching clears the move list. Continue?')){ e.target.value=NB.unit; return; }
+  NB.unit=e.target.value; nbReset();
+};
+$('btnNbSelFlag').onclick=()=>{ for(const u of NB.flags.keys()) if(!NB.pending.has(u)) NB.sel.add(u); nbRender(); };
 $('btnNbSelClear').onclick=()=>{ NB.sel.clear(); nbRender(); };
-$('btnNbAccept').onclick=()=>{ for(const [id,f] of NB.flags) if(!NB.pending.has(id)) NB.pending.set(id,{to:f.to,reason:`${f.votes} of ${f.total} neighbours`}); NB.sel.clear(); nbRender(); };
+$('btnNbAccept').onclick=()=>{ for(const [u,f] of NB.flags) if(!NB.pending.has(u)) NB.pending.set(u,{to:f.to,reason:`${f.votes} of ${f.total} neighbour votes`}); NB.sel.clear(); nbRender(); };
 $('btnNbAssign').onclick=()=>{
-  const to=$('nbTarget').value; if(!to){ alert('Choose the folder these images belong in.'); return; }
-  for(const id of NB.sel){ const im=NB.byId.get(id); if(im.parentId===to) NB.pending.delete(id); else NB.pending.set(id,{to,reason:'Chosen by hand'}); }
+  const to=$('nbTarget').value; if(!to){ alert('Choose the folder to move them into.'); return; }
+  const bad=[...NB.sel].filter(u=>nbPole() && isUnder(to,u));
+  if(bad.length){ alert(`A folder cannot be moved into itself: ${bad.map(nbUnitName).join(', ')}`); return; }
+  for(const u of NB.sel){ if(nbGroupNow(u)===to) NB.pending.delete(u); else NB.pending.set(u,{to,reason:'Chosen by hand'}); }
   NB.sel.clear(); nbRender();
 };
 $('nbTarget').onchange=()=>{ NB.targetTouched=true; };

@@ -14,16 +14,23 @@
 
 # Neighbour review
 
-- Neighbours of an image: up to K images within R metres (defaults 8 and 40 m), plus, with *Use shot
-  order*, the two shots either side from the same `deviceId` taken within 2 minutes. Shot time comes
-  from a capture-time metadata field or the timestamp in a DJI file name
-  (`DJI_YYYYMMDDhhmmss_nnnn`); upload time (`createdAt`) is never used, because an upload batch shares
-  one folder whether or not it is right.
-- Each neighbour votes for its current folder. An image is flagged when at least 3 neighbours voted,
-  the winning folder is not its own, and the winner has at least the agreement share (default 60%).
-  Images without GPS can still be flagged through shot order.
-- Moves are sent as `move` mutations in batches of 50 per target folder. Undo sends each image back
-  to the folder it was in before the run.
+- The unit that moves is either the image's own folder (a pole folder, moved whole into a feeder) or
+  a single image. Votes are about where a unit sits: the pole's parent (feeder), or the image's folder.
+- Neighbours of an image: up to K images from other units within R metres (defaults 8 and 40 m), plus,
+  with *Use shot order*, the nearest two shots either side from other units of the same `deviceId`
+  within 5 minutes. Shot time comes from a capture-time metadata field or the timestamp in a DJI file
+  name (`DJI_YYYYMMDDhhmmss_nnnn`); upload time (`createdAt`) is never used, because an upload batch
+  shares one folder whether or not it is right.
+- Each neighbour votes for the group its unit is in, and votes are pooled over the unit's images. A
+  unit is flagged when it has at least 3 votes, the winner is not its current group, and the winner
+  has at least the agreement share (default 60%). A pole is *mixed* when under 70% of its own images
+  agree with the winner.
+- Flags are committed most-confident first, recounting after each with that unit in its new group, so
+  a misfiled pole does not drag a correctly filed neighbour (for example at the end of a line) with it.
+- Moves are sent as `move` mutations in batches of 50 per destination. Undo sends each unit back to
+  the folder it was in before the run.
+- Corridor analysis counts an image as in a corridor's target folder when the target is any ancestor
+  of the image (so a feeder target covers its pole folders).
 
 # Media Drive API
 

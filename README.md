@@ -21,10 +21,14 @@ Open the hosted page (GitHub Pages, see below) or `index.html` locally, then:
 ### Fix misfiled images from their neighbours (no corridor needed)
 
 When shots were uploaded under the wrong mission, the images around them are usually right. After
-the scan, panel **A** colours every image by its current folder on a satellite map and rings the
-ones whose neighbours (nearby on the ground, plus the shots taken just before and after by the same
-drone) are mostly in another folder. Click or shift-drag to select, pick the folder, review the move
-list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON first.
+the scan, panel **A** puts every image on a satellite map and rings the ones whose neighbours (nearby
+on the ground, plus the shots taken just before and after by the same drone) are filed elsewhere.
+
+For a `Parent > Site > Feeder > Pole` tree, keep **Move: Whole pole folders** (the default): the pole
+folder is what moves, with all its images, into the feeder its neighbouring poles are under. Dots are
+coloured by feeder, and a pole whose own images disagree is marked *mixed* so you can check it first.
+**Single images** mode moves images instead. Click or shift-drag to select, pick the destination,
+review the move list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON.
 
 ### Corridor analysis
 
