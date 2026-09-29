@@ -12,6 +12,19 @@
   least-squares affine (3 or more) transform. Residuals are reported per point. Vertices inside excluded
   rectangles (detail insets, legend, title block) are dropped before the transform.
 
+# Neighbour review
+
+- Neighbours of an image: up to K images within R metres (defaults 8 and 40 m), plus, with *Use shot
+  order*, the two shots either side from the same `deviceId` taken within 2 minutes. Shot time comes
+  from a capture-time metadata field or the timestamp in a DJI file name
+  (`DJI_YYYYMMDDhhmmss_nnnn`); upload time (`createdAt`) is never used, because an upload batch shares
+  one folder whether or not it is right.
+- Each neighbour votes for its current folder. An image is flagged when at least 3 neighbours voted,
+  the winning folder is not its own, and the winner has at least the agreement share (default 60%).
+  Images without GPS can still be flagged through shot order.
+- Moves are sent as `move` mutations in batches of 50 per target folder. Undo sends each image back
+  to the folder it was in before the run.
+
 # Media Drive API
 
 GraphQL endpoint `https://mediadrive-api.unleashlive.com/graphql`, `Authorization: Bearer <PAT>`.

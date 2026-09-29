@@ -18,8 +18,18 @@ Open the hosted page (GitHub Pages, see below) or `index.html` locally, then:
 3. **Time window** (optional): catches images without GPS.
 4. **Target folders**: one per corridor. Run the analysis.
 
+### Fix misfiled images from their neighbours (no corridor needed)
+
+When shots were uploaded under the wrong mission, the images around them are usually right. After
+the scan, panel **A** colours every image by its current folder on a satellite map and rings the
+ones whose neighbours (nearby on the ground, plus the shots taken just before and after by the same
+drone) are mostly in another folder. Click or shift-drag to select, pick the folder, review the move
+list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON first.
+
+### Corridor analysis
+
 Outputs: misfiled list, strays, per-corridor and per-folder summaries, coverage gaps, a move-list CSV,
-a full report CSV, GeoJSON, and a ready-to-paste GraphQL `move` mutation. Nothing is moved by the tool.
+a full report CSV, GeoJSON, and a ready-to-paste GraphQL `move` mutation. The corridor analysis itself moves nothing.
 
 ## Repository layout
 
