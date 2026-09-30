@@ -128,6 +128,8 @@
   .nbleg label.inl{font-size:11px;color:var(--text-body);cursor:pointer}
   #nbTbl tbody tr{cursor:pointer}
   #nbTbl tbody tr:hover td{background:var(--cobalt-50)}
+  .vault{margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--rule-hairline)}
+  .vault .row button{white-space:nowrap}
   .sub-b{font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--text-body)}
 </style>
 </head>
@@ -137,7 +139,7 @@
     <span class="co bullet">Unleash Live</span>
     <h1>Media Drive corridor reconciler</h1>
   </div>
-  <div class="sub">Find images that were foldered under the wrong mission: spot the odd ones out among their neighbours, re-file them in bulk with undo, or check them against a corridor (KML, GeoJSON or a georeferenced site map) for coverage gaps. Runs entirely in your browser; the token is never stored.</div>
+  <div class="sub">Find images that were foldered under the wrong mission: spot the odd ones out among their neighbours, re-file them in bulk with undo, or check them against a corridor (KML, GeoJSON or a georeferenced site map) for coverage gaps. Runs entirely in your browser; your token is only kept if you save it, encrypted with your password.</div>
 </header>
 
 <main>
@@ -156,6 +158,28 @@
       </div>
       <progress id="prog" value="0" max="1" style="display:none;margin-top:8px"></progress>
       <div class="status" id="scanStatus">Not connected.</div>
+      <div class="vault" id="vaultBox">
+        <span class="sub-b bullet">Saved views</span>
+        <div id="vaultNew" style="display:none">
+          <div class="hint">Save your token and folder lists in this browser, encrypted with a password you choose. The password itself is not stored anywhere, so keep it safe: without it the saved data cannot be opened.</div>
+          <div class="row"><div><label>Choose a password</label><input type="password" id="vaultPwNew" autocomplete="new-password"></div>
+            <div><label>Repeat it</label><input type="password" id="vaultPwNew2" autocomplete="new-password"></div></div>
+          <button id="btnVaultCreate" style="margin-top:8px">Set password</button>
+        </div>
+        <div id="vaultLocked" style="display:none">
+          <label>Password</label>
+          <div class="row"><input type="password" id="vaultPw" autocomplete="current-password"><button id="btnVaultUnlock" style="flex:0 0 auto">Unlock</button></div>
+        </div>
+        <div id="vaultOpen" style="display:none">
+          <label>Saved view</label>
+          <div class="row"><select id="viewSel"></select><button id="btnViewLoad" style="flex:0 0 auto">Load</button><button id="btnViewScan" class="primary" style="flex:0 0 auto">Load and scan</button></div>
+          <label>Save the current folders and settings as</label>
+          <div class="row"><input type="text" id="viewName" placeholder="e.g. LH-ED FDRNTH, all REC"><button id="btnViewSave" style="flex:0 0 auto">Save view</button></div>
+          <label class="inl" style="margin-top:8px"><input type="checkbox" id="vaultKeepToken" checked> Remember my token (encrypted)</label>
+          <div class="row" style="margin-top:8px"><button class="sm" id="btnViewDel">Delete view</button><button class="sm" id="btnVaultLock">Lock</button><button class="sm" id="btnVaultForget">Forget all saved data</button></div>
+        </div>
+        <div class="status" id="vaultStatus" style="display:none"></div>
+      </div>
       <details>
         <summary>Advanced / offline options</summary>
         <label>GraphQL endpoint</label>
@@ -456,7 +480,7 @@ async function scan(){
       catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
       for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); items.push(k); if(isFolder(k)){ folderCount++; queue.push(k); } else fileCount++; }
     }
-    markRoots(items); S.demo=false; ingest(items);
+    markRoots(items); S.demo=false; ingest(items); vaultRememberToken();
     const tops=items.filter(i=>i._isRoot).length;
     setStatus('scanStatus',`Scan complete${tops>1?` (${tops} folders)`:''}: ${folderCount} folders, ${fileCount} files, ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
   }catch(e){
@@ -1099,6 +1123,7 @@ function nbReset(){
   $('nbTarget').innerHTML='<option value="">(choose folder)</option>'+list.map(f=>`<option value="${esc(f.id)}">${esc(f.path)} (${f.n} ${nbPole()?'folders':'images'})</option>`).join('');
   $('nbTargetLbl').textContent = nbPole() ? 'Move selected pole folders into' : 'Move selected images to';
   $('nbUnitHead').textContent = nbPole() ? 'Pole folder' : 'Image';
+  if(V.pendingMap && S.images.length && NB.map){ NB.fitted=true; } // a loaded view restores its own map position
   $('btnNbFind').disabled=!S.images.length; $('btnNbUndo').disabled=!NB.last; $('btnNbManifest').disabled=!NB.last;
   const gps=S.images.filter(i=>i._lat!=null).length;
   setStatus('nbStatus', S.images.length ? `${S.images.length} images (${gps} with GPS) in ${NB.unitImgs.size} ${nbWord()}. Press "Find odd ones out", or select on the map yourself.` : 'Scan Media Drive or load demo data first.');
@@ -1147,6 +1172,7 @@ function nbRender(){
       layers[sel?2:(flag||pend?1:0)].push(m);
     }
     layers.flat().forEach(m=>m.addTo(NB.layer)); // selected and flagged draw on top
+    if(V.pendingMap && bounds.length){ NB.map.invalidateSize(); NB.map.setView(V.pendingMap.c, V.pendingMap.z); V.pendingMap=null; NB.fitted=true; }
     if(bounds.length && !NB.fitted){ NB.map.invalidateSize(); NB.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); NB.fitted=true; }
   }
   nbLegend(); nbSelInfo(); nbTable();
@@ -1343,6 +1369,106 @@ $('btnNbAssign').onclick=()=>{
 };
 $('nbTarget').onchange=()=>{ NB.targetTouched=true; };
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && NB.sel.size && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||'')){ NB.sel.clear(); nbRender(); } });
+
+/* =========================================================
+   Saved views: token, folders and settings, encrypted in this browser
+   AES-GCM with a key derived from the user's password (PBKDF2-SHA256). The password is never stored.
+   ========================================================= */
+const VAULT_KEY='mdr.vault.v1';
+const V = { key:null, salt:null, data:null, pendingMap:null };
+const b64 = u8 => { let s=''; for(const b of u8) s+=String.fromCharCode(b); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+function vaultRead(){ try{ const t=localStorage.getItem(VAULT_KEY); return t ? JSON.parse(t) : null; }catch{ return null; } }
+function vaultStatus(msg, cls){ const el=$('vaultStatus'); el.style.display=msg?'block':'none'; if(msg) setStatus('vaultStatus', msg, cls); }
+async function vaultDerive(pw, salt){
+  const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:310000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function vaultWrite(){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, V.key, new TextEncoder().encode(JSON.stringify(V.data))));
+  try{ localStorage.setItem(VAULT_KEY, JSON.stringify({v:1, salt:b64(V.salt), iv:b64(iv), ct:b64(ct)})); }
+  catch{ throw new Error('This browser will not let the page store data (a private window, or site data is blocked).'); }
+}
+function vaultRender(){
+  const has=!!vaultRead(), open=!!V.key;
+  $('vaultNew').style.display = !has ? 'block' : 'none';
+  $('vaultLocked').style.display = has && !open ? 'block' : 'none';
+  $('vaultOpen').style.display = open ? 'block' : 'none';
+  if(open){
+    const views=V.data.views||[];
+    $('viewSel').innerHTML = views.length ? views.map((v,i)=>`<option value="${i}">${esc(v.name)}</option>`).join('') : '<option value="">(no saved views yet)</option>';
+    ['btnViewLoad','btnViewScan','btnViewDel'].forEach(b=>$(b).disabled=!views.length);
+    $('vaultKeepToken').checked = V.data.keepToken!==false;
+  }
+}
+function vaultCollect(name){
+  return { name, folders:$('rootId').value, endpoint:$('endpoint').value, extraFields:$('extraFields').value,
+    nb:{k:$('nbK').value, r:$('nbR').value, agree:$('nbAgree').value, unit:$('nbUnit').value, seq:$('nbSeq').checked},
+    map: NB.map && S.images.length ? {c:[NB.map.getCenter().lat, NB.map.getCenter().lng], z:NB.map.getZoom()} : null,
+    savedAt:new Date().toISOString() };
+}
+function vaultApply(v){
+  $('rootId').value=v.folders||''; if(v.endpoint) $('endpoint').value=v.endpoint; $('extraFields').value=v.extraFields||'';
+  if(v.nb){ $('nbK').value=v.nb.k; $('nbR').value=v.nb.r; $('nbAgree').value=v.nb.agree; $('nbSeq').checked=!!v.nb.seq;
+    if(v.nb.unit && v.nb.unit!==NB.unit){ $('nbUnit').value=v.nb.unit; NB.unit=v.nb.unit; if(S.images.length) nbReset(); } }
+  V.pendingMap=v.map||null;
+}
+// after a successful scan, keep the token that worked
+async function vaultRememberToken(){
+  if(!V.key || V.data.keepToken===false) return; const t=$('pat').value.trim(); if(!t || t===V.data.token) return;
+  V.data.token=t; try{ await vaultWrite(); vaultStatus('Token saved (encrypted).','ok'); }catch(e){ vaultStatus(e.message,'err'); }
+}
+$('btnVaultCreate').onclick=async()=>{
+  const a=$('vaultPwNew').value, b=$('vaultPwNew2').value;
+  if(a.length<8){ vaultStatus('Use at least 8 characters.','err'); return; }
+  if(a!==b){ vaultStatus('The two passwords do not match.','err'); return; }
+  try{ V.salt=crypto.getRandomValues(new Uint8Array(16)); V.key=await vaultDerive(a,V.salt);
+    const t=$('pat').value.trim(); V.data={keepToken:true, token:t||null, views:[]}; await vaultWrite();
+    $('vaultPwNew').value=''; $('vaultPwNew2').value=''; vaultRender();
+    vaultStatus(`Password set.${t?' Your token is saved (encrypted).':' Your token will be saved after your next successful scan.'} Save a view to keep your folders and settings.`,'ok');
+  }catch(e){ V.key=null; vaultStatus(e.message||String(e),'err'); }
+};
+async function vaultUnlock(){
+  const o=vaultRead(); if(!o) { vaultRender(); return; }
+  try{ const salt=unb64(o.salt), key=await vaultDerive($('vaultPw').value, salt);
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(o.iv)}, key, unb64(o.ct));
+    V.key=key; V.salt=salt; V.data=JSON.parse(new TextDecoder().decode(pt)); V.data.views=V.data.views||[];
+  }catch{ vaultStatus('Wrong password.','err'); return; }
+  $('vaultPw').value='';
+  if(V.data.token && V.data.keepToken!==false) $('pat').value=V.data.token;
+  vaultRender(); vaultStatus(`Unlocked.${V.data.token?' Token filled in.':''} ${V.data.views.length} saved view(s).`,'ok');
+}
+$('btnVaultUnlock').onclick=vaultUnlock;
+$('vaultPw').addEventListener('keydown', e=>{ if(e.key==='Enter') vaultUnlock(); });
+$('btnViewSave').onclick=async()=>{
+  const name=$('viewName').value.trim() || $('viewSel').selectedOptions[0]?.text; if(!name || name==='(no saved views yet)'){ vaultStatus('Give the view a name.','err'); return; }
+  const v=vaultCollect(name), i=V.data.views.findIndex(x=>x.name===name);
+  if(i>=0){ if(!confirm(`Replace the saved view "${name}"?`)) return; V.data.views[i]=v; } else V.data.views.push(v);
+  V.data.views.sort((a,b)=>a.name.localeCompare(b.name));
+  if(V.data.keepToken!==false && $('pat').value.trim()) V.data.token=$('pat').value.trim();
+  try{ await vaultWrite(); $('viewName').value=''; vaultRender(); $('viewSel').value=String(V.data.views.findIndex(x=>x.name===name)); vaultStatus(`Saved "${name}".`,'ok'); }
+  catch(e){ vaultStatus(e.message,'err'); }
+};
+function vaultLoadSelected(){ const v=V.data.views[+$('viewSel').value]; if(!v) return null; vaultApply(v); vaultStatus(`Loaded "${v.name}".`,'ok'); return v; }
+$('btnViewLoad').onclick=vaultLoadSelected;
+$('btnViewScan').onclick=()=>{ if(vaultLoadSelected()) scan(); };
+$('btnViewDel').onclick=async()=>{
+  const i=+$('viewSel').value, v=V.data.views[i]; if(!v || !confirm(`Delete the saved view "${v.name}"?`)) return;
+  V.data.views.splice(i,1); try{ await vaultWrite(); vaultRender(); vaultStatus(`Deleted "${v.name}".`,'ok'); }catch(e){ vaultStatus(e.message,'err'); }
+};
+$('vaultKeepToken').onchange=async e=>{
+  V.data.keepToken=e.target.checked; V.data.token = e.target.checked ? ($('pat').value.trim()||null) : null;
+  try{ await vaultWrite(); vaultStatus(e.target.checked?'Your token will be remembered (encrypted).':'Saved token removed. Views are kept.','ok'); }catch(err){ vaultStatus(err.message,'err'); }
+};
+$('btnVaultLock').onclick=()=>{ V.key=null; V.data=null; V.salt=null; $('pat').value=''; vaultRender(); vaultStatus('Locked. The token was cleared from the page.',''); };
+$('btnVaultForget').onclick=()=>{
+  if(!confirm('Delete the saved token and all saved views from this browser? This cannot be undone.')) return;
+  try{ localStorage.removeItem(VAULT_KEY); }catch{}
+  V.key=null; V.data=null; V.salt=null; vaultRender(); vaultStatus('All saved data removed from this browser.','');
+};
+if(!window.crypto?.subtle){ $('vaultBox').innerHTML='<span class="sub-b bullet">Saved views</span><div class="hint">Saving needs a secure page (https or localhost); it is not available when the file is opened directly.</div>'; }
+else vaultRender();
 
 /* =========================================================
    Wire up

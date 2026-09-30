@@ -3,8 +3,9 @@
 A single-page tool for Unleash Live Media Drive that finds images belonging to a corridor
 (KML, KMZ, GeoJSON, or a georeferenced 12kV distribution drawing) that were foldered elsewhere,
 shows coverage gaps along the line, and exports a move list. Everything runs in the browser;
-the Personal Access Token is held in memory only and never stored or sent anywhere except
-`mediadrive-api.unleashlive.com`.
+the Personal Access Token is only sent to `mediadrive-api.unleashlive.com`, and is kept between visits
+only if you use **Saved views**: it is then stored in this browser encrypted with AES-GCM under a
+password you choose (PBKDF2-SHA256, 310,000 rounds). The password is never stored or sent.
 
 ## Use it
 
