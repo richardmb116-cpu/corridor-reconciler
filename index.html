@@ -122,6 +122,10 @@
   .cpt input{width:100%;padding:2px 4px;font-size:12px}
   .modebar{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center}
   .modebar label{display:inline-flex;align-items:center;gap:4px;margin:0}
+  #nbMap.drawing{cursor:crosshair;touch-action:none}
+  #nbMap.drawing .leaflet-interactive{cursor:crosshair}
+  .nbtools{margin-top:var(--space-2);margin-bottom:0}
+  .nbtools button.active,.nbtools button.active:hover{background:var(--onyx);color:var(--white);border-color:var(--onyx)}
   #nbMap{height:560px;border-radius:var(--radius-md);border:1px solid var(--rule-hairline);margin-top:var(--space-2)}
   label.inl{display:inline-flex;align-items:center;gap:6px;margin:0}
   .toolbar label.inl input[type=number]{width:64px}
@@ -257,6 +261,15 @@
         <button class="primary" id="btnNbFind" disabled>Find odd ones out</button>
       </div>
       <div class="status" id="nbStatus">Scan Media Drive or load demo data first.</div>
+      <div class="toolbar nbtools">
+        <span class="sub-b">Select</span>
+        <button class="sm active" id="nbTool_pan" title="Drag to pan, click a dot to select it (P)">Pan / click</button>
+        <button class="sm" id="nbTool_box" title="Drag a rectangle over the poles (B)">Box</button>
+        <button class="sm" id="nbTool_lasso" title="Draw freehand around the poles (L)">Lasso</button>
+        <label class="inl"><input type="checkbox" id="nbRemove"> Remove from selection <span class="hint" style="margin:0">(or hold Alt)</span></label>
+        <span class="spacer"></span>
+        <button class="sm" id="btnNbSelView" disabled title="Select every visible pole in the current map view">Select all in view</button>
+      </div>
       <div id="nbMap"></div>
       <div class="legend nbleg" id="nbLegend"></div>
       <div class="legend">
@@ -265,7 +278,7 @@
         <span><span class="dot" style="background:#fff;border:3px solid #05081d"></span>In move list (shown in its new folder's colour)</span>
       </div>
       <div class="toolbar">
-        <span id="nbSelInfo" class="hint">Click a dot to select it. Shift-drag to select a box. Esc clears.</span>
+        <span id="nbSelInfo" class="hint">Use Box or Lasso to select many at once, or click dots one by one. Esc clears.</span>
         <span class="spacer"></span>
         <button class="sm" id="btnNbSelFlag" disabled>Select all ringed</button>
         <button class="sm" id="btnNbSelClear" disabled>Clear selection</button>
@@ -1087,7 +1100,7 @@ $('btnDemo').onclick=()=>{
    Unit = what moves: the image's own folder (a pole, moved whole into a feeder) or a single image.
    Group = where a unit sits: the pole's parent folder, or the image's folder.
    ========================================================= */
-const NB = { map:null, layer:null, unit:'pole', byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
+const NB = { map:null, layer:null, unit:'pole', tool:'pan', draw:null, lastDraw:null, byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
   colors:new Map(), hidden:new Set(), last:null, box:null, fitted:false, ran:false, targetTouched:false };
 const nbPole = () => NB.unit==='pole';
 const nbUnitOf = im => nbPole() ? im.parentId : im.id;
@@ -1139,14 +1152,40 @@ function ensureNbMap(){
   L.control.layers({'Satellite (Esri)':sat,'Streets (CARTO)':streets},null,{position:'topright'}).addTo(NB.map);
   L.control.scale({imperial:false}).addTo(NB.map);
   NB.layer=L.layerGroup().addTo(NB.map);
-  // shift-drag: add everything inside the box to the selection
-  NB.map.on('mousedown', e=>{ if(!e.originalEvent.shiftKey) return; NB.map.dragging.disable();
-    NB.box={start:e.latlng, rect:L.rectangle([e.latlng,e.latlng],{color:'#3182ed',weight:1,fillOpacity:.12,interactive:false}).addTo(NB.map)}; });
-  NB.map.on('mousemove', e=>{ if(NB.box) NB.box.rect.setBounds(L.latLngBounds(NB.box.start,e.latlng)); });
-  const finish=()=>{ if(!NB.box) return; const b=NB.box.rect.getBounds(); NB.box.rect.remove(); NB.box=null; NB.map.dragging.enable();
-    for(const im of S.images){ const u=nbUnitOf(im); if(u!=null && im._lat!=null && nbMovable(u) && !NB.hidden.has(nbGroupOf(u)) && b.contains([im._lat,im._lng])) NB.sel.add(u); }
-    nbRender(); };
-  NB.map.on('mouseup', finish); document.addEventListener('mouseup', finish);
+  // Selection tools. Box and Lasso draw on the map (Shift-drag boxes in Pan mode too); Remove, or holding Alt, takes items out.
+  const el=NB.map.getContainer();
+  el.addEventListener('pointerdown', e=>{
+    if(e.button!==0 || e.target.closest('.leaflet-control')) return;
+    const kind = NB.tool!=='pan' ? NB.tool : (e.shiftKey ? 'box' : null); if(!kind) return;
+    NB.map.dragging.disable(); const p=NB.map.mouseEventToContainerPoint(e);
+    NB.draw={kind, pts:[p], start:p, remove:$('nbRemove').checked||e.altKey, shape:null};
+    try{ el.setPointerCapture(e.pointerId); }catch{}
+  });
+  el.addEventListener('pointermove', e=>{
+    const d=NB.draw; if(!d) return; const p=NB.map.mouseEventToContainerPoint(e);
+    if(d.kind==='lasso'){ const q=d.pts[d.pts.length-1]; if(Math.hypot(p.x-q.x,p.y-q.y)<3) return; d.pts.push(p); } else d.pts=[d.start,p];
+    const ll=d.pts.map(q=>NB.map.containerPointToLatLng(q));
+    const style={color:d.remove?'#e51728':'#3182ed',weight:2,dashArray:'5 4',fillColor:d.remove?'#e51728':'#3182ed',fillOpacity:.12,interactive:false};
+    if(!d.shape) d.shape=(d.kind==='box'?L.rectangle(L.latLngBounds(ll[0],ll[ll.length-1]),style):L.polygon(ll,style)).addTo(NB.map);
+    else if(d.kind==='box') d.shape.setBounds(L.latLngBounds(ll[0],ll[1])); else d.shape.setLatLngs(ll);
+  });
+  const end=()=>{
+    const d=NB.draw; if(!d) return; NB.draw=null; if(d.shape) d.shape.remove(); if(NB.tool==='pan') NB.map.dragging.enable();
+    if(!d.pts.some(q=>Math.hypot(q.x-d.start.x,q.y-d.start.y)>=5)) return; // just a click: the dot under it handles that
+    NB.suppressClick=Date.now();
+    let inside;
+    if(d.kind==='box'){ const a=d.pts[0], b=d.pts[d.pts.length-1], x0=Math.min(a.x,b.x), x1=Math.max(a.x,b.x), y0=Math.min(a.y,b.y), y1=Math.max(a.y,b.y);
+      inside=q=>q.x>=x0&&q.x<=x1&&q.y>=y0&&q.y<=y1; }
+    else { const P=d.pts; inside=q=>{ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ if(((P[i].y>q.y)!==(P[j].y>q.y)) && q.x<(P[j].x-P[i].x)*(q.y-P[i].y)/(P[j].y-P[i].y)+P[i].x) c=!c; } return c; }; }
+    const hit=new Set();
+    for(const im of S.images){ const u=nbUnitOf(im); if(u==null||hit.has(u)||im._lat==null||!nbMovable(u)||NB.hidden.has(nbGroupOf(u))) continue;
+      if(inside(NB.map.latLngToContainerPoint([im._lat,im._lng]))) hit.add(u); }
+    const before=NB.sel.size; for(const u of hit){ if(d.remove) NB.sel.delete(u); else NB.sel.add(u); }
+    NB.lastDraw = d.remove ? `Removed ${before-NB.sel.size}` : `Added ${NB.sel.size-before}`;
+    nbRender();
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  nbSetTool(NB.tool);
 }
 
 function nbTip(im){
@@ -1168,7 +1207,7 @@ function nbRender(){
       const m=L.circleMarker([im._lat,im._lng],{radius:sel?8:(flag||pend?7:5), color:sel?'#3182ed':flag?'#e51728':pend?'#05081d':'#ffffff',
         weight:sel||flag||pend?3:1, fillColor:c, fillOpacity:.95});
       m.bindTooltip(()=>nbTip(im),{direction:'top',offset:[0,-6]});
-      m.on('click', ev=>{ L.DomEvent.stopPropagation(ev); if(!nbMovable(u)) return; if(NB.sel.has(u)) NB.sel.delete(u); else NB.sel.add(u); nbRender(); });
+      m.on('click', ev=>{ L.DomEvent.stopPropagation(ev); if(Date.now()-(NB.suppressClick||0)<300 || !nbMovable(u)) return; if(NB.sel.has(u)) NB.sel.delete(u); else NB.sel.add(u); nbRender(); });
       layers[sel?2:(flag||pend?1:0)].push(m);
     }
     layers.flat().forEach(m=>m.addTo(NB.layer)); // selected and flagged draw on top
@@ -1187,9 +1226,10 @@ function nbSelInfo(){
   $('btnNbAssign').disabled=!us.length; $('btnNbSelClear').disabled=!us.length;
   $('btnNbSelFlag').disabled=![...NB.flags.keys()].some(u=>!NB.pending.has(u));
   $('btnNbAccept').disabled=$('btnNbSelFlag').disabled;
-  if(!us.length){ $('nbSelInfo').textContent=`Click a dot to select ${nbPole()?'its whole pole folder':'it'}. Shift-drag to select a box. Esc clears.`; NB.targetTouched=false; return; }
+  $('btnNbSelView').disabled=!S.images.length;
+  if(!us.length){ $('nbSelInfo').textContent=`Use Box or Lasso to select many at once, or click a dot to select ${nbPole()?'its whole pole folder':'it'}. Esc clears.`; NB.targetTouched=false; NB.lastDraw=null; return; }
   const imgs=us.reduce((s,u)=>s+(NB.unitImgs.get(u)?.length||0),0);
-  $('nbSelInfo').textContent=`${us.length} ${nbWord(us.length)} selected${nbPole()?` (${imgs} images)`:''}, now in ${tally(us.map(u=>folderPath(nbGroupOf(u)))).map(([p,c])=>`${p} (${c})`).join(', ')}`;
+  $('nbSelInfo').textContent=`${NB.lastDraw?NB.lastDraw+'. ':''}${us.length} ${nbWord(us.length)} selected${nbPole()?` (${imgs} images)`:''}, now in ${tally(us.map(u=>folderPath(nbGroupOf(u)))).map(([p,c])=>`${p} (${c})`).join(', ')}`;
   if(!NB.targetTouched){ // suggest the folder the neighbours of the selection point to
     const sug=tally(us.map(u=>NB.best.get(u)).filter(b=>b&&b.folder).map(b=>b.folder).filter(f=>!us.every(u=>nbGroupOf(u)===f)));
     if(sug.length && [...$('nbTarget').options].some(o=>o.value===sug[0][0])) $('nbTarget').value=sug[0][0];
@@ -1353,6 +1393,18 @@ $('btnNbCsv').onclick=()=>{
   download(`neighbour-move-list_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv');
 };
 $('btnNbFind').onclick=nbFind;
+function nbSetTool(t){
+  NB.tool=t; ['pan','box','lasso'].forEach(k=>$('nbTool_'+k).classList.toggle('active',k===t));
+  if(NB.map){ NB.map.getContainer().classList.toggle('drawing',t!=='pan'); if(t==='pan') NB.map.dragging.enable(); else NB.map.dragging.disable(); }
+}
+['pan','box','lasso'].forEach(k=>$('nbTool_'+k).onclick=()=>nbSetTool(k));
+$('btnNbSelView').onclick=()=>{ if(!NB.map) return; const b=NB.map.getBounds(), before=NB.sel.size;
+  for(const im of S.images){ const u=nbUnitOf(im); if(u!=null && im._lat!=null && nbMovable(u) && !NB.hidden.has(nbGroupOf(u)) && b.contains([im._lat,im._lng])) NB.sel.add(u); }
+  NB.lastDraw=`Added ${NB.sel.size-before}`; nbRender(); };
+document.addEventListener('keydown', e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||'') || e.metaKey || e.ctrlKey || !S.images.length) return;
+  const k=e.key.toLowerCase(); if(k==='b') nbSetTool('box'); else if(k==='l') nbSetTool('lasso'); else if(k==='p') nbSetTool('pan');
+});
 $('nbUnit').onchange=e=>{
   if(NB.pending.size && !confirm('Switching clears the move list. Continue?')){ e.target.value=NB.unit; return; }
   NB.unit=e.target.value; nbReset();

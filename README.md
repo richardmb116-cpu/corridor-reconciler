@@ -28,7 +28,9 @@ on the ground, plus the shots taken just before and after by the same drone) are
 For a `Parent > Site > Feeder > Pole` tree, keep **Move: Whole pole folders** (the default): the pole
 folder is what moves, with all its images, into the feeder its neighbouring poles are under. Dots are
 coloured by feeder, and a pole whose own images disagree is marked *mixed* so you can check it first.
-**Single images** mode moves images instead. Click or shift-drag to select, pick the destination,
+**Single images** mode moves images instead. Select with **Box** or **Lasso** (draw freehand round a run of poles; tick *Remove*, or hold Alt, to
+take them out again), **Select all in view**, or click dots one by one. Keys: B box, L lasso, P pan.
+Then pick the destination,
 review the move list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON.
 
 ### Corridor analysis
