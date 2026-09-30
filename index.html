@@ -262,6 +262,18 @@
   .fchip .sw{width:9px;height:9px;border-radius:50%;margin:0;border:none}
   #mgTbl tbody tr{cursor:pointer} #mgTbl tbody tr.on td{background:var(--cobalt-50)} #mgTbl tbody tr.focus td:first-child{box-shadow:inset 3px 0 0 var(--cobalt-500)}
   #mgTbl select.sm{width:auto;max-width:240px;padding:5px 8px;font-size:12px}
+  .cache{margin-top:14px;padding-top:12px;border-top:1px solid var(--cool-200)}
+  .cache-h{display:flex;align-items:center;margin-bottom:6px}
+  .cache-h .link{padding:2px 0}
+  .crow{display:flex;align-items:center;gap:6px;padding:5px 6px;margin:0 -6px;border-radius:var(--radius-md)}
+  .crow:hover{background:var(--chalk)}
+  .crow.on .cname{font-weight:500}
+  .crow.on .cname::after{content:"loaded";margin-left:6px;font:400 9px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--emerald-700);background:var(--emerald-50);padding:2px 5px;border-radius:var(--radius-xs);vertical-align:1px}
+  .crow label.chk{flex:1;min-width:0;font-size:13px}
+  .cname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .cmeta{font-size:11px;color:var(--text-supporting);white-space:nowrap}
+  button.icon{border:none;background:none;padding:2px 6px;color:var(--text-supporting);font-size:14px;line-height:1}
+  button.icon:hover{color:var(--onyx);background:var(--stone)}
   td.empty{padding:28px 16px;text-align:center;color:var(--text-supporting);font-size:13px}
   .vault{margin:0;padding:0;border:none}
   #map{height:460px;border-color:var(--cool-200)}
@@ -293,11 +305,17 @@
       <textarea id="rootId" rows="3" placeholder="Folder ID or Media Drive link, one per line"></textarea>
       <div class="hint">Every sub-folder is included, and all folders are reviewed together so poles can move between them.</div>
       <div class="row btnrow">
-        <button class="primary" id="btnScan">Scan Media Drive</button>
+        <button class="primary" id="btnScan" title="Cached folders load instantly; others are scanned">Scan</button>
+        <button id="btnScanFresh" style="flex:0 0 auto" title="Ignore the cache and rescan every folder from Media Drive">Rescan fresh</button>
         <button id="btnCancel" disabled style="flex:0 0 auto">Cancel</button>
       </div>
       <progress id="prog" value="0" max="1" style="display:none;margin-top:10px"></progress>
       <div class="status" id="scanStatus">Not connected.</div>
+      <div class="cache" id="cacheBox" style="display:none">
+        <div class="cache-h"><span class="ctl-l">Cached folders</span><span class="spacer"></span><button class="link" id="btnCacheClear">Clear cache</button></div>
+        <div id="cacheList"></div>
+        <div class="hint">Tick folders to put them in the scan list, then press Scan: cached ones load instantly. ↻ rescans one folder.</div>
+      </div>
     </section>
 
     <section class="panel vaultcard" id="vaultBox">
@@ -710,35 +728,90 @@ function markRoots(items){
   for(const it of items){ if(isFolder(it)){ if(!ids.has(it.parentId)) it._isRoot=true; else delete it._isRoot; } }
 }
 function childLocation(folder){ const loc = (folder.location||'').replace(/#/g,'/'); return loc ? `${loc}/${folder.id}` : folder.id; }
-async function scan(){
-  S.cancel=false; $('btnScan').disabled=true; $('btnCancel').disabled=false; $('prog').style.display='block'; $('prog').removeAttribute('value');
+/* ---------- Scan cache: each scanned folder's tree, kept in this browser (IndexedDB) ---------- */
+const SC = { db:null, ok:typeof indexedDB!=='undefined', list:[] };
+const scKey = id => `${$('endpoint').value.trim()}|${id}`;
+function scDb(){ return new Promise((res,rej)=>{ if(SC.db) return res(SC.db); if(!SC.ok) return rej(new Error('no IndexedDB'));
+  const rq=indexedDB.open('mdr-cache',1); rq.onupgradeneeded=()=>rq.result.createObjectStore('roots',{keyPath:'key'});
+  rq.onsuccess=()=>{ SC.db=rq.result; res(SC.db); }; rq.onerror=()=>{ SC.ok=false; rej(rq.error); }; }); }
+async function scTx(mode, fn){ const db=await scDb(); return new Promise((res,rej)=>{ const tx=db.transaction('roots',mode), st=tx.objectStore('roots'); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); }); }
+const scGet = id => scTx('readonly', st=>st.get(scKey(id))).catch(()=>null);
+const scPut = rec => scTx('readwrite', st=>st.put(rec)).catch(()=>null);
+const scDel = key => scTx('readwrite', st=>st.delete(key)).catch(()=>null);
+const scAll = () => scTx('readonly', st=>st.getAll()).catch(()=>[]);
+const scStrip = items => items.map(({_lat,_lng,_time,_timeSrc,_folderPath,_isRoot,...rest})=>rest);
+function fmtAge(t){ const s=(Date.now()-t)/1000; if(s<60) return 'just now'; if(s<3600) return `${Math.round(s/60)} min ago`; if(s<86400) return `${Math.round(s/3600)} h ago`; return `${Math.round(s/86400)} d ago`; }
+function scSubtree(rootId, items){ const kids=new Map(); for(const it of items){ if(!kids.has(it.parentId)) kids.set(it.parentId,[]); kids.get(it.parentId).push(it); }
+  const out=[], q=[rootId], seen=new Set(); const root=items.find(i=>i.id===rootId); if(root) out.push(root);
+  while(q.length){ const id=q.shift(); if(seen.has(id)) continue; seen.add(id); for(const k of kids.get(id)||[]){ out.push(k); if(isFolder(k)) q.push(k.id); } }
+  return out; }
+function scRecord(root, sub, scannedAt){ return { key:scKey(root.id), rootId:root.id, name:root.name||root.id, endpoint:$('endpoint').value.trim(), extra:$('extraFields').value.trim(),
+  scannedAt, editedAt:Date.now(), items:scStrip(sub), images:sub.filter(isImage).length, folders:sub.filter(isFolder).length }; }
+// after moves, keep each loaded folder's cached tree in step with what is on screen
+async function scSyncLoaded(){ if(S.demo || !SC.ok) return; const recs=new Map((await scAll()).map(r=>[r.key,r]));
+  for(const root of S.items.filter(i=>i._isRoot)){ const old=recs.get(scKey(root.id)); if(!old) continue; await scPut(scRecord(root, scSubtree(root.id,S.items), old.scannedAt)); }
+  scRenderList(); }
+async function scRenderList(){
+  if(!SC.ok){ $('cacheBox').style.display='none'; return; }
+  const ep=$('endpoint').value.trim(); SC.list=(await scAll()).filter(r=>r.endpoint===ep).sort((a,b)=>a.name.localeCompare(b.name));
+  $('cacheBox').style.display=SC.list.length?'block':'none';
+  const loaded=new Set(S.items.filter(i=>i._isRoot).map(i=>i.id)), wanted=new Set(parseFolderIds($('rootId').value));
+  $('cacheList').innerHTML=SC.list.map(r=>`<div class="crow${loaded.has(r.rootId)?' on':''}" data-id="${esc(r.rootId)}">
+      <label class="inl chk"><input type="checkbox" data-act="tick" ${wanted.has(r.rootId)?'checked':''}><span class="cname" title="${esc(r.rootId)}">${esc(r.name)}</span></label>
+      <span class="cmeta">${r.images.toLocaleString()} images · ${fmtAge(r.scannedAt)}</span>
+      <button class="icon" data-act="refresh" title="Rescan this folder from Media Drive">↻</button><button class="icon" data-act="drop" title="Remove from cache">×</button></div>`).join('');
+}
+$('cacheList').addEventListener('change', e=>{ if(e.target.dataset.act!=='tick') return; const id=e.target.closest('.crow').dataset.id; const ids=parseFolderIds($('rootId').value);
+  const next = e.target.checked ? [...ids.filter(x=>x!==id), id] : ids.filter(x=>x!==id); $('rootId').value=next.join('\n'); });
+$('cacheList').addEventListener('click', async e=>{ const act=e.target.dataset.act; if(!act||act==='tick') return; const id=e.target.closest('.crow').dataset.id;
+  if(act==='drop'){ await scDel(scKey(id)); scRenderList(); return; }
+  if(act==='refresh'){ if(!parseFolderIds($('rootId').value).includes(id)) $('rootId').value=[...parseFolderIds($('rootId').value), id].join('\n'); scan({fresh:new Set([id])}); } });
+$('btnCacheClear').onclick=async()=>{ if(!confirm('Remove every cached folder from this browser? Your folders in Media Drive are not affected.')) return; for(const r of await scAll()) await scDel(r.key); scRenderList(); };
+$('btnScanFresh').onclick=()=>scan({fresh:'all'});
+['rootId','endpoint'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(SC.t); SC.t=setTimeout(scRenderList,250); }));
+
+async function scanRoot(id, seen, items, counts){ // walk one folder tree from Media Drive
+  const root = await getItem(id);
+  if(!root) throw new Error(`Folder ${id} not found (check the ID and that the token has access to this team).`);
+  const sub=[root], queue=[root]; seen.add(root.id); counts.folders++;
+  while(queue.length){
+    if(S.cancel) throw new Error('Cancelled');
+    const f=queue.shift();
+    setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … folders: ${counts.folders}, files: ${counts.files}`);
+    let kids;
+    try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … ${n} items so far (folders: ${counts.folders}, files: ${counts.files})`)); }
+    catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+    for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); sub.push(k); if(isFolder(k)){ counts.folders++; queue.push(k); } else counts.files++; }
+  }
+  return sub;
+}
+// opts.fresh: 'all' to rescan every folder, a Set of folder IDs to rescan just those; otherwise cached folders load instantly
+async function scan(opts={}){
+  S.cancel=false; $('btnScan').disabled=true; $('btnScanFresh').disabled=true; $('btnCancel').disabled=false; $('prog').style.display='block'; $('prog').removeAttribute('value');
   try{
-    if(!$('pat').value.trim()) throw new Error('Enter your Personal Access Token first.');
     const rootIds=parseFolderIds($('rootId').value); if(!rootIds.length) throw new Error('Enter at least one folder ID to scan.');
-    const items=[], queue=[], seen=new Set(); let folderCount=0, fileCount=0;
+    const items=[], seen=new Set(), counts={folders:0,files:0}, fromCache=[], fresh=[];
     for(const [n,id] of rootIds.entries()){
-      setStatus('scanStatus',`Fetching folder ${n+1} of ${rootIds.length}…`);
-      const root = await getItem(id);
-      if(!root) throw new Error(`Folder ${id} not found (check the ID and that the token has access to this team).`);
-      if(!seen.has(root.id)){ seen.add(root.id); root._isRoot=true; items.push(root); queue.push(root); folderCount++; }
+      const forced = opts.fresh==='all' || (opts.fresh instanceof Set && opts.fresh.has(id));
+      const rec = forced ? null : await scGet(id);
+      if(rec && rec.extra===$('extraFields').value.trim()){
+        for(const it of rec.items){ if(!seen.has(it.id)){ seen.add(it.id); items.push({...it}); } }
+        fromCache.push(rec); continue;
+      }
+      if(!$('pat').value.trim()) throw new Error(`"${rec?.name||id}" is not cached yet, so it has to be scanned: enter your Personal Access Token first.`);
+      setStatus('scanStatus',`Scanning folder ${n+1} of ${rootIds.length}…`);
+      const sub=await scanRoot(id, seen, items, counts); items.push(...sub); fresh.push(sub[0]);
+      await scPut(scRecord(sub[0], sub, Date.now()));
     }
-    while(queue.length){
-      if(S.cancel) throw new Error('Cancelled');
-      const f=queue.shift();
-      setStatus('scanStatus',`Listing "${f.name||f.id}" … folders: ${folderCount}, files: ${fileCount}`);
-      let kids;
-      try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Listing "${f.name||f.id}" … ${n} items so far (folders: ${folderCount}, files: ${fileCount})`)); }
-      catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
-      for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); items.push(k); if(isFolder(k)){ folderCount++; queue.push(k); } else fileCount++; }
-    }
-    markRoots(items); S.demo=false; ingest(items); vaultRememberToken();
-    const tops=items.filter(i=>i._isRoot).length;
-    setStatus('scanStatus',`Scan complete${tops>1?` (${tops} folders)`:''}: ${folderCount} folders, ${fileCount} files, ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+    markRoots(items); S.demo=false; ingest(items); if(fresh.length) vaultRememberToken();
+    const tops=items.filter(i=>i._isRoot).length, oldest=fromCache.length?Math.min(...fromCache.map(r=>r.scannedAt)):null;
+    const how = !fromCache.length ? 'Scanned from Media Drive' : !fresh.length ? `Loaded from cache (scanned ${fmtAge(oldest)})` : `${fresh.length} scanned, ${fromCache.length} from cache`;
+    setStatus('scanStatus',`${how}${tops>1?` · ${tops} folders`:''}: ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders.${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
   }catch(e){
     let msg = e.message||String(e);
-    if(/Failed to fetch|NetworkError|CORS/i.test(msg)) msg += '\n\nThis usually means the browser was blocked by CORS. Run fetch_media_drive.py to export a JSON file, then load it under "Advanced / offline options".';
+    if(/Failed to fetch|NetworkError|CORS/i.test(msg)) msg += '\n\nThis usually means the browser was blocked by CORS. Run fetch_media_drive.py to export a JSON file, then load it under "Advanced and offline".';
     setStatus('scanStatus','Error: '+msg,'err');
-  }finally{ $('btnScan').disabled=false; $('btnCancel').disabled=true; $('prog').style.display='none'; }
+  }finally{ $('btnScan').disabled=false; $('btnScanFresh').disabled=false; $('btnCancel').disabled=true; $('prog').style.display='none'; scRenderList(); }
 }
 
 /* =========================================================
@@ -1597,6 +1670,7 @@ async function nbRunMoves(moves, kind, done){
     }
   }
   for(const im of S.images) im._folderPath=folderPath(im.parentId);
+  scSyncLoaded();
 }
 async function nbApply(moves, kind, verb){
   const btns=['btnNbApply','btnNbUndo','btnNbFind','btnNbAccept','btnNbAssign','nbUnit']; btns.forEach(b=>$(b).disabled=true);
@@ -1913,8 +1987,8 @@ document.addEventListener('click',e=>{ const d=document.querySelector('details.s
 /* =========================================================
    Wire up
    ========================================================= */
-$('btnScan').onclick=scan; $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
-ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); nbStats(); mgRender();
+$('btnScan').onclick=()=>scan(); $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
+ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); nbStats(); mgRender(); scRenderList();
 </script>
 </body>
 </html>

@@ -41,6 +41,14 @@ folder. Each burst is suggested to merge into the folder holding most of its sho
 destination per row, tick the bursts to merge and press **Merge selected**. Shots are moved as
 single images, folders emptied by a merge are left in place (and reported), and the run can be undone.
 
+### Scan cache
+
+Each scanned folder's tree is kept in this browser (IndexedDB), so pressing **Scan** again loads it
+instantly, even without a token. **Rescan fresh** ignores the cache (to pick up new uploads), and
+↻ next to a cached folder rescans just that one. Tick cached folders to choose which ones to load
+together. Moves made here update the cache. The cache holds file names, folder names, GPS and
+times (not images) and is not encrypted; **Clear cache** removes it.
+
 ### Corridor analysis
 
 Outputs: misfiled list, strays, per-corridor and per-folder summaries, coverage gaps, a move-list CSV,
