@@ -33,6 +33,14 @@ take them out again), **Select all in view**, or click dots one by one. Keys: B 
 Then pick the destination,
 review the move list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON.
 
+### Merge split captures
+
+The **Merge splits** tab finds bursts of shots taken together (same drone, consecutive shots at most
+60 s apart, within 20 m of the burst's first shot; both adjustable) that ended up in more than one
+folder. Each burst is suggested to merge into the folder holding most of its shots; change the
+destination per row, tick the bursts to merge and press **Merge selected**. Shots are moved as
+single images, folders emptied by a merge are left in place (and reported), and the run can be undone.
+
 ### Corridor analysis
 
 Outputs: misfiled list, strays, per-corridor and per-folder summaries, coverage gaps, a move-list CSV,

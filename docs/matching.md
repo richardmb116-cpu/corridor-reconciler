@@ -32,6 +32,15 @@
 - Corridor analysis counts an image as in a corridor's target folder when the target is any ancestor
   of the image (so a feeder target covers its pole folders).
 
+# Split captures
+
+- Shots are grouped per `deviceId` (or all together with *Same drone only* off) and sorted by shot
+  time. A shot joins the current burst when it is at most the gap (default 60 s) after the previous
+  shot and, when it has GPS, within the distance (default 20 m) of the burst's first GPS shot; the
+  distance check stops a mission's poles chaining into one burst.
+- A burst with shots in two or more folders is a split. The suggested destination is the folder with
+  most of the burst's shots (ties go to the folder with more images overall).
+
 # Media Drive API
 
 GraphQL endpoint `https://mediadrive-api.unleashlive.com/graphql`, `Authorization: Bearer <PAT>`.

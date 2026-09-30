@@ -99,7 +99,7 @@
   .badge::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px;background:currentColor}
   .b-ok{background:var(--emerald-50);color:var(--emerald-700)} .b-warn{background:var(--amber-50);color:var(--amber-700)} .b-bad{background:var(--crimson-50);color:var(--crimson-700)} .b-info{background:var(--cobalt-50);color:var(--cobalt-700)} .b-idle{background:var(--chalk);color:var(--slate)}
   .toolbar{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;margin:var(--space-2) 0}
-  .toolbar .spacer{flex:1}
+  .toolbar .spacer,.spacer{flex:1}
   .mono{font-family:var(--font-mono);font-size:12px}
   details{border:1px solid var(--rule-hairline);border-radius:var(--radius-md);padding:8px 12px;margin-top:var(--space-2)}
   summary{cursor:pointer;font-size:11px;color:var(--text-body)}
@@ -134,75 +134,214 @@
   #nbTbl tbody tr:hover td{background:var(--cobalt-50)}
   .vault{margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--rule-hairline)}
   .vault .row button{white-space:nowrap}
+  /* ---------- Refinement layer ---------- */
+  body{background:var(--chalk)}
+  header{height:56px;padding:0 24px;align-items:center;flex-wrap:nowrap;gap:28px;position:sticky;top:0;z-index:1100}
+  header .brand{display:flex;align-items:center;gap:14px;white-space:nowrap}
+  header .co{margin:0;font-size:11px;color:rgba(255,255,255,.7)}
+  header h1{font-size:17px;line-height:1}
+  .modetabs{display:flex;height:100%;gap:4px}
+  .modetabs button{background:none;border:none;border-radius:0;color:rgba(255,255,255,.55);padding:0 12px;height:100%;border-bottom:2px solid transparent;border-top:2px solid transparent;font-size:14px}
+  .modetabs button:hover{background:none;color:var(--white)}
+  .modetabs button.active{color:var(--white);border-bottom-color:var(--crimson)}
+  .pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font:400 11px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .pill::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--cool-600)}
+  .pill.on::before{background:var(--emerald-600);box-shadow:0 0 0 3px rgba(68,162,73,.25)}
+  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
+  main{grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px 24px 32px;align-items:start;min-height:calc(100vh - 56px)}
+  .side{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;padding-bottom:2px}
+  @media (max-width:980px){ main{grid-template-columns:minmax(0,1fr);padding:16px} .side{position:static;max-height:none} header{gap:12px;padding:0 16px} header .co{display:none} }
+  @media (max-width:720px){ .controls{align-items:stretch} .controls .spacer{display:none} .controls > button{width:100%} .ctl{flex-wrap:wrap} .maptools{left:10px;top:auto;bottom:28px;max-width:calc(100% - 20px)} .selact{flex-wrap:wrap} .selact select{max-width:none;flex:1 1 100%} .applybar{margin:16px -20px -20px} }
+  @media (max-width:640px){ header h1{display:none} .modetabs{overflow-x:auto;scrollbar-width:none} .modetabs button{white-space:nowrap;padding:0 9px;font-size:13px} .pill{max-width:34vw} }
+  @media (max-width:420px){ .pill{font-size:0;gap:0;max-width:none} .pill::before{font-size:11px} }
+  .modetabs button{white-space:nowrap}
+  .stack{gap:16px}
+  .panel{padding:20px;border-radius:var(--radius-lg);border-color:var(--cool-200);box-shadow:0 1px 2px rgba(5,8,29,.04)}
+  .card-t{font:400 11px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--text-body);margin-bottom:4px;display:flex;align-items:center}
+  .card-t::before{content:"";width:6px;height:6px;background:var(--crimson);margin-right:8px}
+  .card-h{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px}
+  .card-h h2{margin:0;font-size:22px;line-height:1.1;font-weight:400}
+  .card-h p{margin:6px 0 0;font-size:14px;line-height:1.4;color:var(--text-supporting);max-width:680px}
+  label{font-size:10px;margin:14px 0 6px}
+  input[type=text],input[type=password],input[type=number],input[type=datetime-local],select,textarea{padding:9px 11px;border-color:var(--cool-200);border-radius:var(--radius-md);box-shadow:inset 0 1px 1px rgba(5,8,29,.03)}
+  input:hover,select:hover,textarea:hover{border-color:var(--cool-400)}
+  textarea{resize:vertical;font-family:var(--font-mono);font-size:12px;line-height:1.5;min-height:74px}
+  button{border-radius:var(--radius-md);border-color:var(--cool-200);padding:9px 14px}
+  button:hover{border-color:var(--cool-400)}
+  button.sm{padding:5px 10px}
+  button.full{width:100%}
+  button.link{border:none;background:none;padding:6px 8px;color:var(--text-supporting);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--cool-200)}
+  button.link:hover{color:var(--onyx);background:none;text-decoration-color:currentColor}
+  button.link.danger:hover{color:var(--crimson-700)}
+  button.link:disabled{text-decoration:none}
+  .btnrow{margin-top:14px}
+  .linkrow{display:flex;gap:4px;flex-wrap:wrap;margin:10px -8px 0}
+  label.chk{font:400 13px/1.2 var(--font-sans);letter-spacing:var(--tracking-body);text-transform:none;color:var(--text-body);cursor:pointer}
+  .hint{font-size:12px;line-height:1.4;margin-top:6px}
+  .status{font:400 13px/1.4 var(--font-sans);letter-spacing:var(--tracking-body);text-transform:none;background:var(--chalk);border:none;border-left:3px solid var(--cool-200);border-radius:var(--radius-xs);padding:9px 12px;margin-top:12px;color:var(--text-body)}
+  .status.ok{background:var(--emerald-50);border-left-color:var(--emerald-600);color:var(--emerald-700)}
+  .status.err{background:var(--crimson-50);border-left-color:var(--crimson-600);color:var(--crimson-800)}
+  .status.quiet{margin:0 0 12px}
+  details.adv{padding:0} details.adv summary{padding:14px 20px;list-style:none;display:flex;align-items:center;gap:8px;color:var(--text-supporting)}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary::after{content:"+";margin-left:auto;font-size:14px}
+  details.adv[open] summary::after{content:"–"}
+  details.adv[open]{padding:0 20px 20px} details.adv[open] summary{margin:0 -20px}
+  details.adv > summary + label{margin-top:4px}
+  /* segmented control */
+  .seg{display:inline-flex;border:1px solid var(--cool-200);border-radius:var(--radius-md);background:var(--white);overflow:hidden;flex:none}
+  .seg button{border:none;border-radius:0;padding:7px 12px;font-size:13px;background:none;color:var(--text-supporting)}
+  .seg button + button{border-left:1px solid var(--cool-200)}
+  .seg button:hover{background:var(--chalk);color:var(--onyx)}
+  .seg button.active,.seg button.active:hover{background:var(--onyx);color:var(--white)}
+  /* review card */
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px;background:var(--chalk);border-radius:var(--radius-md);margin-bottom:12px}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl-l{font:400 10px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--text-supporting)}
+  details.settings{position:relative;border:none;padding:0;margin:0}
+  details.settings summary{list-style:none;font:400 13px/1 var(--font-sans);letter-spacing:var(--tracking-body);text-transform:none;padding:9px 12px;border:1px solid var(--cool-200);border-radius:var(--radius-md);background:var(--white);color:var(--text-body)}
+  details.settings summary::-webkit-details-marker{display:none}
+  details.settings summary::after{content:"▾";margin-left:8px;color:var(--text-supporting)}
+  details.settings[open] summary{border-color:var(--onyx)}
+  .settings-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:1200;width:360px;background:var(--white);border:1px solid var(--cool-200);border-radius:var(--radius-lg);box-shadow:var(--shadow-overlay);padding:4px 16px 16px}
+  .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--cool-200);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px}
+  @media (max-width:700px){ .stats{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .stat{padding:12px 14px;border-right:1px solid var(--cool-200);background:var(--white);min-width:0}
+  .stat:last-child{border-right:none}
+  .stat .v{font-size:24px;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .l{font:400 10px/1.2 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--text-supporting);margin-top:6px}
+  .stat.bad .v{color:var(--crimson-700)} .stat.sel .v{color:var(--cobalt-600)}
+  .stat.bad .l::before,.stat.sel .l::before,.stat.pend .l::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .stat.bad .l::before{background:var(--crimson-600)} .stat.sel .l::before{background:var(--cobalt-500)} .stat.pend .l::before{background:var(--onyx)}
+  .mapwrap{position:relative}
+  #nbMap{height:clamp(420px,62vh,720px);margin-top:0;border-color:var(--cool-200)}
+  .maptools{position:absolute;top:10px;left:54px;z-index:800;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(255,255,255,.97);padding:5px;border-radius:var(--radius-md);box-shadow:var(--shadow-overlay);margin:0;max-width:calc(100% - 120px)}
+  .maptools .seg button{padding:6px 12px}
+  .maptools label.chk{font-size:12px;padding:0 4px}
+  .maptools button.sm{border-color:transparent}
+  .mapempty{position:absolute;inset:0;z-index:900;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;background:rgba(247,246,245,.94);border-radius:var(--radius-md)}
+  .mapempty .me-t{font-size:18px}
+  .legend{margin-top:10px;gap:6px 14px}
+  .nbleg{gap:6px}
+  .nbleg label.inl{font:400 12px/1 var(--font-sans);letter-spacing:var(--tracking-body);text-transform:none;border:1px solid var(--cool-200);border-radius:999px;padding:5px 10px 5px 8px;background:var(--white)}
+  .nbleg label.inl:has(input:not(:checked)){opacity:.5}
+  .nbleg input{margin:0}
+  .nbleg .sw{width:10px;height:10px;border-radius:50%;margin:0;border:none}
+  .legend.keys{font-size:10px}
+  .dot.ring{width:10px;height:10px;background:var(--white);border:3px solid}
+  .dot.ring.bad{border-color:var(--crimson)} .dot.ring.sel{border-color:var(--cobalt-500)} .dot.ring.pend{border-color:var(--onyx)}
+  .kbd-hint{margin-left:auto;color:var(--cool-400)}
+  .selbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border:1px solid var(--cool-200);border-radius:var(--radius-md);background:var(--white);transition:var(--transition-color)}
+  .selbar.has{border-color:var(--cobalt-500);background:var(--cobalt-50);box-shadow:0 0 0 3px rgba(49,130,237,.12)}
+  .selinfo{flex:1 1 260px;font-size:13px;line-height:1.35;color:var(--text-supporting)}
+  .selbar.has .selinfo{color:var(--onyx)}
+  .selact{display:flex;gap:8px;align-items:center;flex:1 1 420px;justify-content:flex-end}
+  .selact select{flex:1;min-width:0;max-width:420px}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tblhead{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-top:18px;border-bottom:1px solid var(--cool-200)}
+  .tblhead .tabs{border:none;margin:0}
+  .tblhead .tab span{color:var(--cool-400);margin-left:2px}
+  .tblhead button.sm{margin-bottom:6px}
+  .review .tablewrap{max-height:340px;border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md)}
+  .tablewrap{border-color:var(--cool-200)}
+  th{background:var(--white);color:var(--text-supporting);border-bottom:1px solid var(--ash);box-shadow:0 1px 0 var(--ash);font-size:10px}
+  th,td{padding:8px 10px;vertical-align:middle}
+  tbody tr:nth-child(even) td{background:none}
+  tbody tr:hover td{background:var(--chalk)}
+  #nbTbl tbody tr:hover td{background:var(--cobalt-50)}
+  .applybar{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px -20px -20px;padding:14px 20px;background:rgba(255,255,255,.97);border-top:1px solid var(--cool-200);border-radius:0 0 var(--radius-lg) var(--radius-lg);backdrop-filter:blur(4px)}
+  .pendinfo{font-size:14px}
+  .applybar + .status{margin-top:28px}
+  #mgMap{height:clamp(380px,52vh,620px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
+  .stats.s4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  input.numsm{width:72px;padding:6px 8px}
+  .fchips{display:flex;flex-wrap:wrap;gap:4px}
+  .fchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--cool-200);border-radius:999px;padding:3px 9px 3px 7px;font-size:12px;background:var(--white);white-space:nowrap}
+  .fchip b{font-weight:500;color:var(--text-supporting)}
+  .fchip.to{border-color:var(--onyx);box-shadow:inset 0 0 0 1px var(--onyx)}
+  .fchip .sw{width:9px;height:9px;border-radius:50%;margin:0;border:none}
+  #mgTbl tbody tr{cursor:pointer} #mgTbl tbody tr.on td{background:var(--cobalt-50)} #mgTbl tbody tr.focus td:first-child{box-shadow:inset 3px 0 0 var(--cobalt-500)}
+  #mgTbl select.sm{width:auto;max-width:240px;padding:5px 8px;font-size:12px}
+  td.empty{padding:28px 16px;text-align:center;color:var(--text-supporting);font-size:13px}
+  .vault{margin:0;padding:0;border:none}
+  #map{height:460px;border-color:var(--cool-200)}
   .sub-b{font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--text-body)}
 </style>
 </head>
 <body>
 <header>
-  <div>
+  <div class="brand">
     <span class="co bullet">Unleash Live</span>
-    <h1>Media Drive corridor reconciler</h1>
+    <h1>Media Drive Reconciler</h1>
   </div>
-  <div class="sub">Find images that were foldered under the wrong mission: spot the odd ones out among their neighbours, re-file them in bulk with undo, or check them against a corridor (KML, GeoJSON or a georeferenced site map) for coverage gaps. Runs entirely in your browser; your token is only kept if you save it, encrypted with your password.</div>
+  <nav class="modetabs" aria-label="Mode">
+    <button data-go="refile" class="active">Re-file</button>
+    <button data-go="merge">Merge splits</button>
+    <button data-go="corridor">Corridor analysis</button>
+  </nav>
+  <span class="pill" id="connPill">Not connected</span>
 </header>
 
 <main>
-  <!-- LEFT: inputs -->
-  <div class="stack">
-    <div class="panel">
-      <div class="step"><span class="n">01</span><h3>Connect to Media Drive</h3></div>
-      <label>Personal Access Token (ul_pat_…)</label>
-      <input type="password" id="pat" placeholder="Bearer token from Profile → Developers" autocomplete="off">
-      <label>Folders to scan (recursive): one ID or Media Drive link per line</label>
-      <textarea id="rootId" rows="3" placeholder="Folder ID or link from cloud.unleashlive.com&#10;Add more lines to scan several folders together" style="resize:vertical;font-family:var(--font-mono);font-size:12px"></textarea>
-      <div class="hint">Everything under each folder is listed, including sub-folders, and all of them are reviewed together, so images can be moved between them. Include every folder that holds both the "right" and the "wrong" locations. Commas or spaces also separate IDs.</div>
-      <div class="row" style="margin-top:10px">
+  <!-- LEFT: connect, saved views, corridor inputs -->
+  <aside class="stack side">
+    <section class="panel">
+      <div class="card-t">Connect</div>
+      <label for="pat">Personal access token</label>
+      <input type="password" id="pat" placeholder="ul_pat_… from Profile → Developers" autocomplete="off">
+      <label for="rootId">Folders to scan</label>
+      <textarea id="rootId" rows="3" placeholder="Folder ID or Media Drive link, one per line"></textarea>
+      <div class="hint">Every sub-folder is included, and all folders are reviewed together so poles can move between them.</div>
+      <div class="row btnrow">
         <button class="primary" id="btnScan">Scan Media Drive</button>
-        <button id="btnCancel" disabled>Cancel</button>
+        <button id="btnCancel" disabled style="flex:0 0 auto">Cancel</button>
       </div>
-      <progress id="prog" value="0" max="1" style="display:none;margin-top:8px"></progress>
+      <progress id="prog" value="0" max="1" style="display:none;margin-top:10px"></progress>
       <div class="status" id="scanStatus">Not connected.</div>
-      <div class="vault" id="vaultBox">
-        <span class="sub-b bullet">Saved views</span>
-        <div id="vaultNew" style="display:none">
-          <div class="hint">Save your token and folder lists in this browser, encrypted with a password you choose. The password itself is not stored anywhere, so keep it safe: without it the saved data cannot be opened.</div>
-          <div class="row"><div><label>Choose a password</label><input type="password" id="vaultPwNew" autocomplete="new-password"></div>
-            <div><label>Repeat it</label><input type="password" id="vaultPwNew2" autocomplete="new-password"></div></div>
-          <button id="btnVaultCreate" style="margin-top:8px">Set password</button>
-        </div>
-        <div id="vaultLocked" style="display:none">
-          <label>Password</label>
-          <div class="row"><input type="password" id="vaultPw" autocomplete="current-password"><button id="btnVaultUnlock" style="flex:0 0 auto">Unlock</button></div>
-        </div>
-        <div id="vaultOpen" style="display:none">
-          <label>Saved view</label>
-          <div class="row"><select id="viewSel"></select><button id="btnViewLoad" style="flex:0 0 auto">Load</button><button id="btnViewScan" class="primary" style="flex:0 0 auto">Load and scan</button></div>
-          <label>Save the current folders and settings as</label>
-          <div class="row"><input type="text" id="viewName" placeholder="e.g. LH-ED FDRNTH, all REC"><button id="btnViewSave" style="flex:0 0 auto">Save view</button></div>
-          <label class="inl" style="margin-top:8px"><input type="checkbox" id="vaultKeepToken" checked> Remember my token (encrypted)</label>
-          <div class="row" style="margin-top:8px"><button class="sm" id="btnViewDel">Delete view</button><button class="sm" id="btnVaultLock">Lock</button><button class="sm" id="btnVaultForget">Forget all saved data</button></div>
-        </div>
-        <div class="status" id="vaultStatus" style="display:none"></div>
-      </div>
-      <details>
-        <summary>Advanced / offline options</summary>
-        <label>GraphQL endpoint</label>
-        <input type="text" id="endpoint" value="https://mediadrive-api.unleashlive.com/graphql">
-        <label>Extra metadata fields to request (comma separated, optional)</label>
-        <input type="text" id="extraFields" placeholder="e.g. dateTimeOriginal, takenAt">
-        <div class="hint">If Unleash Live exposes a capture-time field on <span class="mono">metadata</span>, add it here and it will be preferred over <span class="mono">createdAt</span>. Unknown fields will make the query fail, so add one at a time.</div>
-        <label>Or load items from a JSON export instead of calling the API</label>
-        <input type="file" id="jsonFile" accept=".json,application/json" multiple>
-        <div class="hint">Use the bundled <span class="mono">fetch_media_drive.py</span> helper if the browser is blocked by CORS. It writes a JSON file this page can read.</div>
-        <div class="row" style="margin-top:8px">
-          <button id="btnDemo">Load demo data</button>
-          <button id="btnSaveJson" disabled>Save scanned items as JSON</button>
-        </div>
-      </details>
-    </div>
+    </section>
 
-    <div class="panel">
-      <div class="step"><span class="n">02</span><h3>Add corridors</h3></div>
+    <section class="panel vaultcard" id="vaultBox">
+      <div class="card-t">Saved views</div>
+      <div id="vaultNew" style="display:none">
+        <div class="hint" style="margin-top:0">Keep your token and folder lists in this browser, encrypted with a password you choose. The password is never stored, so it can't be recovered if you forget it.</div>
+        <div class="row"><div><label for="vaultPwNew">Password</label><input type="password" id="vaultPwNew" autocomplete="new-password"></div>
+          <div><label for="vaultPwNew2">Repeat</label><input type="password" id="vaultPwNew2" autocomplete="new-password"></div></div>
+        <button id="btnVaultCreate" class="full" style="margin-top:10px">Set password</button>
+      </div>
+      <div id="vaultLocked" style="display:none">
+        <label for="vaultPw">Password</label>
+        <div class="row"><input type="password" id="vaultPw" autocomplete="current-password"><button id="btnVaultUnlock" class="primary" style="flex:0 0 auto">Unlock</button></div>
+      </div>
+      <div id="vaultOpen" style="display:none">
+        <label for="viewSel">View</label>
+        <select id="viewSel"></select>
+        <div class="row btnrow"><button id="btnViewScan" class="primary">Load and scan</button><button id="btnViewLoad" style="flex:0 0 auto">Load</button></div>
+        <label for="viewName">Save current folders and settings as</label>
+        <div class="row"><input type="text" id="viewName" placeholder="e.g. LH-ED FDRNTH, all REC"><button id="btnViewSave" style="flex:0 0 auto">Save</button></div>
+        <label class="inl chk" style="margin-top:12px"><input type="checkbox" id="vaultKeepToken" checked> Remember my token (encrypted)</label>
+        <div class="linkrow"><button class="link" id="btnViewDel">Delete view</button><button class="link" id="btnVaultLock">Lock</button><button class="link danger" id="btnVaultForget">Forget all saved data</button></div>
+      </div>
+      <div class="status" id="vaultStatus" style="display:none"></div>
+    </section>
+
+    <details class="panel adv">
+      <summary>Advanced and offline</summary>
+      <label for="endpoint">GraphQL endpoint</label>
+      <input type="text" id="endpoint" value="https://mediadrive-api.unleashlive.com/graphql">
+      <label for="extraFields">Extra metadata fields</label>
+      <input type="text" id="extraFields" placeholder="e.g. dateTimeOriginal, takenAt">
+      <div class="hint">A capture-time field here is preferred over upload time. Unknown fields make the query fail, so add one at a time.</div>
+      <label for="jsonFile">Load a JSON export instead</label>
+      <input type="file" id="jsonFile" accept=".json,application/json" multiple>
+      <div class="hint">From <span class="mono">fetch_media_drive.py</span>, for when the browser is blocked from calling the API.</div>
+      <div class="row btnrow">
+        <button id="btnDemo">Load demo data</button>
+        <button id="btnSaveJson" disabled>Save scan as JSON</button>
+      </div>
+    </details>
+
+    <section class="panel" data-mode="corridor">
+      <div class="step"><span class="n">01</span><h3>Add corridors</h3></div>
       <label>KML, KMZ or GeoJSON (a line, or waypoints to connect)</label>
       <input type="file" id="kmlFile" accept=".kml,.kmz,.geojson,.json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/geo+json,application/json" multiple>
       <div class="status" id="kmlStatus">No corridor loaded.</div>
@@ -215,108 +354,207 @@
       </select>
       <label>Segments longer than this are "bridges" across missing waypoints (m, blank = auto 2.5× median)</label>
       <input type="number" id="bridgeLen" placeholder="auto" min="1" step="10">
-      <label>Buffer distance either side of the line (m)</label>
-      <input type="number" id="buffer" value="60" min="1" step="5">
-      <label>Wider buffer for bridged segments (m)</label>
-      <input type="number" id="bridgeBuffer" value="150" min="1" step="10">
+      <div class="row">
+        <div><label>Buffer each side (m)</label><input type="number" id="buffer" value="60" min="1" step="5"></div>
+        <div><label>Bridge buffer (m)</label><input type="number" id="bridgeBuffer" value="150" min="1" step="10"></div>
+      </div>
       <label>Coverage bin length along the line (m)</label>
       <input type="number" id="binLen" value="50" min="5" step="5">
-      <div class="hint">Site-map feeders are added from the "Site map" panel on the right after georeferencing. All corridors are matched together; each image is assigned to the nearest one within its buffer.</div>
-    </div>
+      <div class="hint">Site-map feeders are added from the Site map panel after georeferencing. Each image is assigned to the nearest corridor within its buffer.</div>
+    </section>
 
-    <div class="panel">
-      <div class="step"><span class="n">03</span><h3>Time window (optional)</h3></div>
+    <section class="panel" data-mode="corridor">
+      <div class="step"><span class="n">02</span><h3>Time window (optional)</h3></div>
       <div class="row">
         <div><label>From</label><input type="datetime-local" id="tFrom"></div>
         <div><label>To</label><input type="datetime-local" id="tTo"></div>
       </div>
-      <label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="timeStrict"> Also require GPS matches to fall inside the window</label>
-      <div class="hint">Images with no GPS that fall inside the window are flagged as "time-only" candidates. Leave blank to skip. Times are your local time.</div>
-      <button id="btnAutoTime" style="margin-top:8px">Suggest window from GPS matches</button>
-    </div>
+      <label class="inl chk" style="margin-top:10px"><input type="checkbox" id="timeStrict"> Also require GPS matches to fall inside the window</label>
+      <div class="hint">Images with no GPS inside the window are flagged as time-only candidates. Times are your local time.</div>
+      <button id="btnAutoTime" class="full" style="margin-top:10px">Suggest window from GPS matches</button>
+    </section>
 
-    <div class="panel">
-      <div class="step"><span class="n">04</span><h3>Corridors and their target folders</h3></div>
+    <section class="panel" data-mode="corridor">
+      <div class="step"><span class="n">03</span><h3>Corridors and target folders</h3></div>
       <div id="corrList"><div class="hint">No corridors yet. Load a KML/GeoJSON or georeference a site map.</div></div>
       <div class="row" style="margin-top:8px">
         <button id="btnClearCorr" class="sm">Remove all corridors</button>
       </div>
-      <div class="hint" id="targetHint">Images on a corridor that are NOT in that corridor's folder are listed as misfiled. Leave a folder blank to only report which feeder each image sits on.</div>
-      <button class="primary" id="btnAnalyse" style="margin-top:10px;width:100%" disabled>Run analysis</button>
-    </div>
-  </div>
+      <div class="hint" id="targetHint">Images on a corridor that are not under that corridor's folder are listed as misfiled. Leave a folder blank to only report which feeder each image sits on.</div>
+      <button class="primary full" id="btnAnalyse" style="margin-top:12px" disabled>Run analysis</button>
+    </section>
+  </aside>
 
-  <!-- RIGHT: neighbour review, map, site map, results -->
+  <!-- RIGHT -->
   <div class="stack">
-    <div class="panel accent" id="nbPanel">
-      <div class="step"><span class="n">A</span><h3>Fix misfiled images from their neighbours</h3></div>
-      <div class="hint">Scan first (step 01); no corridor is needed. With <b>Whole pole folders</b> (for Site &gt; Feeder &gt; Pole), each image's own folder is the thing that moves, with everything in it, into the feeder its neighbouring poles are in. Dots are coloured by feeder; a pole is ringed red when most of the poles around it (close by on the ground, and shot just before and after) sit under a different feeder. Select, choose the destination, review the move list, then apply.</div>
-      <div class="toolbar">
-        <label class="inl">Neighbours <input type="number" id="nbK" value="8" min="2" max="30" class="sm"></label>
-        <label class="inl">Within (m) <input type="number" id="nbR" value="40" min="1" step="5" class="sm"></label>
-        <label class="inl">Agreement % <input type="number" id="nbAgree" value="60" min="50" max="100" step="5" class="sm"></label>
-        <label class="inl">Move <select id="nbUnit" class="sm" style="width:auto"><option value="pole">Whole pole folders</option><option value="image">Single images</option></select></label>
-        <label class="inl"><input type="checkbox" id="nbSeq" checked> Use shot order</label>
+    <section class="panel review" id="nbPanel" data-mode="refile">
+      <div class="card-h">
+        <div>
+          <h2>Re-file by neighbours</h2>
+          <p>Poles that were uploaded under the wrong mission stand out from the poles around them. Find them, select, and move them into the right folder in one go.</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctl">
+          <span class="ctl-l">Move</span>
+          <div class="seg" role="group" aria-label="What to move">
+            <button id="nbUnitPole" class="active">Whole pole folders</button>
+            <button id="nbUnitImage">Single images</button>
+          </div>
+          <select id="nbUnit" hidden><option value="pole">Whole pole folders</option><option value="image">Single images</option></select>
+        </div>
+        <details class="settings">
+          <summary>Detection settings</summary>
+          <div class="settings-pop">
+            <div class="row">
+              <div><label for="nbK">Neighbours</label><input type="number" id="nbK" value="8" min="2" max="30"></div>
+              <div><label for="nbR">Within (m)</label><input type="number" id="nbR" value="40" min="1" step="5"></div>
+              <div><label for="nbAgree">Agreement %</label><input type="number" id="nbAgree" value="60" min="50" max="100" step="5"></div>
+            </div>
+            <label class="inl chk" style="margin-top:12px"><input type="checkbox" id="nbSeq" checked> Use shot order (capture time from DJI file names)</label>
+            <div class="hint">A pole is flagged when at least this share of the neighbouring poles, within this distance, sit under one other folder.</div>
+          </div>
+        </details>
         <span class="spacer"></span>
         <button class="primary" id="btnNbFind" disabled>Find odd ones out</button>
       </div>
-      <div class="status" id="nbStatus">Scan Media Drive or load demo data first.</div>
-      <div class="toolbar nbtools">
-        <span class="sub-b">Select</span>
-        <button class="sm active" id="nbTool_pan" title="Drag to pan, click a dot to select it (P)">Pan / click</button>
-        <button class="sm" id="nbTool_box" title="Drag a rectangle over the poles (B)">Box</button>
-        <button class="sm" id="nbTool_lasso" title="Draw freehand around the poles (L)">Lasso</button>
-        <label class="inl"><input type="checkbox" id="nbRemove"> Remove from selection <span class="hint" style="margin:0">(or hold Alt)</span></label>
-        <span class="spacer"></span>
-        <button class="sm" id="btnNbSelView" disabled title="Select every visible pole in the current map view">Select all in view</button>
+
+      <div class="stats">
+        <div class="stat"><div class="v" id="stUnits">–</div><div class="l" id="stUnitsL">Pole folders</div></div>
+        <div class="stat"><div class="v" id="stImgs">–</div><div class="l">Images</div></div>
+        <div class="stat bad"><div class="v" id="stRinged">–</div><div class="l">Look misfiled</div></div>
+        <div class="stat sel"><div class="v" id="stSel">–</div><div class="l">Selected</div></div>
+        <div class="stat pend"><div class="v" id="stPend">–</div><div class="l">In move list</div></div>
       </div>
-      <div id="nbMap"></div>
+      <div class="status quiet" id="nbStatus">Scan Media Drive or load demo data first.</div>
+
+      <div class="mapwrap">
+        <div id="nbMap"></div>
+        <div class="maptools nbtools">
+          <div class="seg" role="group" aria-label="Selection tool">
+            <button id="nbTool_pan" class="active" title="Drag to pan, click a dot to select it (P)">Pan</button>
+            <button id="nbTool_box" title="Drag a rectangle over the poles (B)">Box</button>
+            <button id="nbTool_lasso" title="Draw freehand around the poles (L)">Lasso</button>
+          </div>
+          <label class="inl chk" title="Or hold Alt while drawing"><input type="checkbox" id="nbRemove"> Remove</label>
+          <button class="sm" id="btnNbSelView" disabled title="Select every visible pole in the current map view">All in view</button>
+        </div>
+        <div class="mapempty" id="nbEmpty">
+          <div class="me-t">No images yet</div>
+          <div class="hint" style="margin:0">Connect and scan your folders, or try it with demo data.</div>
+          <button id="btnDemo2">Load demo data</button>
+        </div>
+      </div>
       <div class="legend nbleg" id="nbLegend"></div>
-      <div class="legend">
-        <span><span class="dot" style="background:#fff;border:3px solid #e51728"></span>Neighbours say another folder</span>
-        <span><span class="dot" style="background:#fff;border:3px solid #3182ed"></span>Selected</span>
-        <span><span class="dot" style="background:#fff;border:3px solid #05081d"></span>In move list (shown in its new folder's colour)</span>
+      <div class="legend keys">
+        <span><span class="dot ring bad"></span>Looks misfiled</span>
+        <span><span class="dot ring sel"></span>Selected</span>
+        <span><span class="dot ring pend"></span>In move list (shown in its new folder's colour)</span>
+        <span class="kbd-hint">B box · L lasso · P pan · Esc clear</span>
       </div>
-      <div class="toolbar">
-        <span id="nbSelInfo" class="hint">Use Box or Lasso to select many at once, or click dots one by one. Esc clears.</span>
+
+      <div class="selbar" id="selBar">
+        <div class="selinfo" id="nbSelInfo">Use Box or Lasso to select many at once, or click dots one by one.</div>
+        <div class="selact">
+          <label id="nbTargetLbl" for="nbTarget" class="sr">Move selected pole folders into</label>
+          <select id="nbTarget"><option value="">(choose folder)</option></select>
+          <button id="btnNbAssign" class="primary" disabled>Add to move list</button>
+          <button id="btnNbSelClear" disabled>Clear</button>
+        </div>
+      </div>
+
+      <div class="tblhead">
+        <div class="tabs" id="nbViewTabs">
+          <button class="tab active" data-view="all">All <span id="tvAll"></span></button>
+          <button class="tab" data-view="suggested">Suggested <span id="tvSug"></span></button>
+          <button class="tab" data-view="pending">Move list <span id="tvPend"></span></button>
+        </div>
         <span class="spacer"></span>
-        <button class="sm" id="btnNbSelFlag" disabled>Select all ringed</button>
-        <button class="sm" id="btnNbSelClear" disabled>Clear selection</button>
+        <button class="sm" id="btnNbSelFlag" disabled>Select all suggested</button>
+        <button class="sm" id="btnNbAccept" disabled>Accept all suggestions</button>
       </div>
-      <div class="row" style="align-items:flex-end">
-        <div style="flex:2"><label id="nbTargetLbl">Move selected pole folders into</label><select id="nbTarget"><option value="">(choose folder)</option></select></div>
-        <div><button id="btnNbAssign" disabled style="width:100%">Add to move list</button></div>
-        <div><button id="btnNbAccept" disabled style="width:100%">Accept all suggestions</button></div>
-      </div>
-      <div class="tablewrap" style="max-height:280px;margin-top:10px"><table id="nbTbl"><thead><tr><th></th><th id="nbUnitHead">Pole folder</th><th>Images</th><th>Now in</th><th>Belongs in</th><th>Why</th><th>Shot</th><th></th></tr></thead><tbody><tr><td colspan="8" class="hint">Press "Find odd ones out", or select images on the map yourself.</td></tr></tbody></table></div>
-      <div class="toolbar">
-        <span id="nbPendInfo" class="hint">Move list is empty.</span>
+      <div class="tablewrap"><table id="nbTbl"><thead><tr><th></th><th id="nbUnitHead">Pole folder</th><th>Images</th><th>Now in</th><th>Belongs in</th><th>Why</th><th>Shot</th><th></th></tr></thead><tbody><tr><td colspan="8" class="hint">Press "Find odd ones out", or select on the map yourself.</td></tr></tbody></table></div>
+
+      <div class="applybar">
+        <div id="nbPendInfo" class="pendinfo">Move list is empty.</div>
         <span class="spacer"></span>
-        <button class="sm" id="btnNbCsv" disabled>Export move list (CSV)</button>
-        <button class="sm" id="btnNbManifest" disabled>Save last run (JSON)</button>
-        <button class="sm" id="btnNbUndo" disabled>Undo last run</button>
+        <button class="link" id="btnNbCsv" disabled>Export CSV</button>
+        <button class="link" id="btnNbManifest" disabled>Save last run</button>
+        <button id="btnNbUndo" disabled>Undo last run</button>
         <button class="primary" id="btnNbApply" disabled>Apply moves in Media Drive</button>
       </div>
       <div class="status" id="nbApplyStatus" style="display:none"></div>
-    </div>
+    </section>
 
-    <div class="panel">
-      <div class="step"><span class="n">B</span><h3>Corridor analysis (steps 02 to 04)</h3></div>
+    <section class="panel review" id="mgPanel" data-mode="merge">
+      <div class="card-h">
+        <div>
+          <h2>Merge split captures</h2>
+          <p>Shots taken seconds apart at the same spot belong in one folder. This finds bursts of photos that ended up split across folders, so you can bring each set back together.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="ctl"><span class="ctl-l">Shots within</span><input type="number" id="mgGap" value="60" min="5" step="5" class="numsm" aria-label="Seconds between shots"><span class="ctl-l">seconds and</span><input type="number" id="mgDist" value="20" min="1" step="5" class="numsm" aria-label="Metres from the first shot"><span class="ctl-l">metres</span></div>
+        <label class="inl chk"><input type="checkbox" id="mgDev" checked> Same drone only</label>
+        <span class="spacer"></span>
+        <button class="primary" id="btnMgFind" disabled>Find split captures</button>
+      </div>
+      <div class="stats s4">
+        <div class="stat bad"><div class="v" id="mgStG">–</div><div class="l">Split bursts</div></div>
+        <div class="stat"><div class="v" id="mgStF">–</div><div class="l">Folders involved</div></div>
+        <div class="stat sel"><div class="v" id="mgStS">–</div><div class="l">Selected</div></div>
+        <div class="stat pend"><div class="v" id="mgStI">–</div><div class="l">Shots to move</div></div>
+      </div>
+      <div class="status quiet" id="mgStatus">Scan Media Drive or load demo data first.</div>
+      <div class="mapwrap">
+        <div id="mgMap"></div>
+        <div class="mapempty" id="mgEmpty">
+          <div class="me-t">No images yet</div>
+          <div class="hint" style="margin:0">Connect and scan your folders, or try it with demo data.</div>
+          <button id="btnDemo3">Load demo data</button>
+        </div>
+      </div>
+      <div class="legend keys">
+        <span><span class="dot" style="background:#c9cbd1"></span>Other images</span>
+        <span><span class="dot ring bad"></span>Split burst (coloured by the folder each shot is in now)</span>
+        <span><span class="dot ring sel"></span>Selected</span>
+        <span class="kbd-hint">Click a dot or a row to select its burst</span>
+      </div>
+      <div class="tblhead">
+        <div class="tabs"><span class="tab active" style="cursor:default">Split bursts <span id="mgCount"></span></span></div>
+        <span class="spacer"></span>
+        <button class="sm" id="btnMgAll" disabled>Select all</button>
+        <button class="sm" id="btnMgNone" disabled>Select none</button>
+      </div>
+      <div class="tablewrap"><table id="mgTbl"><thead><tr><th style="width:28px"></th><th>Captured</th><th>Shots</th><th>Split across</th><th>Merge into</th><th>Moves</th></tr></thead><tbody><tr><td colspan="6" class="empty">Press <b>Find split captures</b> after scanning.</td></tr></tbody></table></div>
+      <div class="applybar">
+        <div id="mgPendInfo" class="pendinfo">Nothing selected.</div>
+        <span class="spacer"></span>
+        <button class="link" id="btnMgCsv" disabled>Export CSV</button>
+        <button id="btnMgUndo" disabled>Undo last merge</button>
+        <button class="primary" id="btnMgApply" disabled>Merge selected</button>
+      </div>
+      <div class="status" id="mgApplyStatus" style="display:none"></div>
+    </section>
+
+    <section class="panel" data-mode="corridor">
+      <div class="card-h"><div><h2>Corridor analysis</h2><p>Check images against a corridor line for misfiled shots and coverage gaps. Add corridors on the left, set their target folders, then run the analysis.</p></div></div>
       <div id="map"></div>
       <div class="legend">
         <span><span class="dot" style="background:#2865ca"></span>Corridor (own colour per feeder)</span>
-        <span><span class="dot" style="background:#1d2c69;border:1px dashed #fff"></span>Bridged segment (missing waypoint)</span>
+        <span><span class="dot" style="background:#1d2c69;border:1px dashed #fff"></span>Bridged segment</span>
         <span><span class="dot" style="background:#fff;border:2px solid #05081d"></span>Waypoint / control point</span>
-        <span><span class="dot" style="background:#44a249"></span>On corridor, in target folder</span>
-        <span><span class="dot" style="background:#e51728"></span>On corridor, misfiled</span>
-        <span><span class="dot" style="background:#d27b30"></span>In target folder, off corridor</span>
-        <span><span class="dot" style="background:#2865ca"></span>On corridor, no folder set</span>
-        <span><span class="dot" style="background:#989ba5"></span>Other images</span>
+        <span><span class="dot" style="background:#44a249"></span>In target folder</span>
+        <span><span class="dot" style="background:#e51728"></span>Misfiled</span>
+        <span><span class="dot" style="background:#d27b30"></span>In target, off corridor</span>
+        <span><span class="dot" style="background:#2865ca"></span>No folder set</span>
+        <span><span class="dot" style="background:#989ba5"></span>Other</span>
         <span><span class="dot" style="background:#05081d;opacity:.6"></span>Coverage gap</span>
       </div>
-    </div>
+    </section>
 
-    <div class="panel">
+    <section class="panel" data-mode="corridor">
       <details id="smDetails">
         <summary><b>Site map</b>: georeference a feeder drawing (from <span class="mono">extract_site_map.py</span>) and turn its feeders into corridors</summary>
         <div class="row" style="margin-top:8px">
@@ -349,9 +587,9 @@
           </div>
         </div>
       </details>
-    </div>
+    </section>
 
-    <div class="panel">
+    <section class="panel" data-mode="corridor">
       <div class="kpis" id="kpis">
         <div class="kpi info"><div class="v" id="kImages">·</div><div class="l">Images scanned</div></div>
         <div class="kpi ok"><div class="v" id="kOk">·</div><div class="l">Correctly filed</div></div>
@@ -362,7 +600,7 @@
         <div class="kpi bad"><div class="v" id="kGaps">·</div><div class="l">Coverage gaps</div></div>
       </div>
 
-      <div class="tabs">
+      <div class="tabs" id="resultTabs">
         <button class="tab active" data-tab="mis">Misfiled</button>
         <button class="tab" data-tab="stray">Strays</button>
         <button class="tab" data-tab="time">Time-only</button>
@@ -376,14 +614,14 @@
       <div class="toolbar">
         <input type="text" id="tableFilter" placeholder="Filter rows…" style="max-width:260px">
         <span class="spacer"></span>
-        <button id="btnCsvMove" disabled>Export move list (CSV)</button>
-        <button id="btnCsvAll" disabled>Export full report (CSV)</button>
-        <button id="btnGeo" disabled>Export GeoJSON</button>
-        <button id="btnMutation" disabled>Copy GraphQL move mutation</button>
+        <button class="sm" id="btnCsvMove" disabled>Export move list (CSV)</button>
+        <button class="sm" id="btnCsvAll" disabled>Export full report (CSV)</button>
+        <button class="sm" id="btnGeo" disabled>Export GeoJSON</button>
+        <button class="sm" id="btnMutation" disabled>Copy GraphQL move mutation</button>
       </div>
       <div class="tablewrap"><table id="tbl"><thead></thead><tbody><tr><td class="hint">Run the analysis to see results.</td></tr></tbody></table></div>
-      <div class="hint" style="margin-top:8px">Nothing is moved by this tool. The CSV and the mutation text are for you (or support) to action after review.</div>
-    </div>
+      <div class="hint" style="margin-top:8px">The corridor analysis moves nothing. The CSV and the mutation text are for you (or support) to action after review; to move poles here, use Re-file.</div>
+    </section>
   </div>
 </main>
 
@@ -534,7 +772,7 @@ function ingest(items){
   }
   renderCorridors(); updateAnalyseBtn();
   $('btnSaveJson').disabled = !S.items.length;
-  drawMap(); nbReset();
+  drawMap(); nbReset(); mgReset();
 }
 function folderPath(id){
   const parts=[]; let cur=S.folders.get(id); let guard=0;
@@ -844,7 +1082,7 @@ function renderTable(){
   tbody.querySelectorAll('tr[data-lat]').forEach(tr=>tr.onclick=()=>{ const la=+tr.dataset.lat, ln=+tr.dataset.lng; if(la&&ln&&S.map) S.map.setView([la,ln],18); });
 }
 $('tableFilter').oninput=renderTable;
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.tab=b.dataset.tab; S.sort={key:null,dir:1}; renderTable(); });
+document.querySelectorAll('#resultTabs .tab').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#resultTabs .tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.tab=b.dataset.tab; S.sort={key:null,dir:1}; renderTable(); });
 
 /* =========================================================
    Map
@@ -853,12 +1091,12 @@ function ensureMap(){
   if(S.map) return;
   if(typeof L==='undefined'){ if(!S._mapWarned){ S._mapWarned=true; $('map').innerHTML='<div class="hint" style="padding:16px">Map unavailable (the Leaflet library could not be loaded, check internet access). Tables and exports still work.</div>'; } return; }
   S.map=L.map('map',{preferCanvas:true}).setView([35.2,-119.5],6);
-  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'});
-  const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'});
+  const carto = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
+  const cartoLight = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:16,maxZoom:21,attribution:'Tiles &copy; Esri'});
   const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
   const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'});
   carto.addTo(S.map);
-  L.control.layers({'Streets (CARTO)':carto,'Light (CARTO)':cartoLight,'Satellite (Esri)':esriSat,'Topographic (Esri)':esriTopo},null,{position:'topright'}).addTo(S.map);
+  L.control.layers({'Streets':carto,'Light grey':cartoLight,'Satellite':esriSat,'Topographic':esriTopo},null,{position:'topright'}).addTo(S.map);
   L.control.scale({imperial:false}).addTo(S.map);
   S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
   S.map.on('click', e=>onMapClick(e.latlng));
@@ -887,7 +1125,7 @@ function drawMap(){
     for(let i=0;i<=n;i++) seg.push(pointAtChain(P.lines,g.from+(g.len*i/n)));
     L.polyline(seg,{color:'#05081d',weight:9,opacity:.45}).bindPopup(`<b>${esc(g.corridor)}</b><br>Gap: ${fmt(g.from)} to ${fmt(g.to)} m (${fmt(g.len)} m)<br>${g.recoverable} misfiled photo(s) fall here`).addTo(S.layers.gaps); } }
   if(S.sm){ S.sm.controlPoints.forEach((cp,i)=>{ if(cp.lat!=null) L.circleMarker([cp.lat,cp.lng],{radius:7,color:'#05081d',fillColor:'#fe9c4c',fillOpacity:1,weight:2}).bindTooltip(`CP ${i+1}`,{permanent:true,direction:'right',offset:[8,0]}).addTo(S.layers.cp); }); }
-  if(bounds.length && !S._fitted){ S.map.fitBounds(bounds,{padding:[20,20]}); S._fitted=true; }
+  if(bounds.length && !S._fitted && $('map').offsetWidth){ S.map.invalidateSize(); S.map.fitBounds(bounds,{padding:[20,20]}); S._fitted=true; } // a hidden map fits when first shown
   else if(bounds.length && S.corridors.length && S._lastCorrCount!==S.corridors.length){ S.map.fitBounds(bounds,{padding:[20,20]}); }
   S._lastCorrCount=S.corridors.length;
 }
@@ -1090,9 +1328,12 @@ $('btnDemo').onclick=()=>{
   for(let k=0;k<6;k++){ items.push(mk(`stray${k}`,`DJI_${2000+k}.JPG`,pole('S','Pole A-900','fA'),lat0-0.01-k*0.001,lng0+0.02,t0+k*60000)); }
   for(let k=0;k<4;k++){ const it=mk(`nogps${k}`,`DJI_${3000+k}.JPG`,pole('N','Pole U-001','fC'),null,null,t0+(15+k)*45000); it.metadata={}; items.push(it); }
   for(let k=0;k<12;k++){ const p=lineB[Math.floor(k*20/12)]; items.push(mk(`b${k}`,dji(t0+3600000*5+k*30000,500+k), pole(`B${Math.floor(k/3)}`,`Pole B-${String(Math.floor(k/3)+1).padStart(3,'0')}`, k<8?'fB':'fA'), p[0]+(Math.random()-0.5)*0.0002, p[1], t0+3600000*5+k*30000)); }
+  for(const [bi,pk] of [[1,5],[2,20],[3,33]]){ // bursts of shots at one pole, split across two folders by the upload
+    const [la,lo]=along(pk+0.5,0), tb=t0+7200000+bi*600000, f1=pole(`M${pk}`,`Pole M-${String(pk).padStart(3,'0')}`,'fA'), f2=pole(`M${pk}b`,`Pole M-${String(pk).padStart(3,'0')} (2)`,'fA');
+    for(let k=0;k<6;k++) items.push(mk(`burst${bi}-${k}`,dji(tb+k*7000,800+bi*10+k),k<4?f1:f2,la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,tb+k*7000)); }
   $('rootId').value='root'; S.demo=true;
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
-  setStatus('scanStatus',`Demo: ${items.length} items, ${S.images.length} images loaded. Click "Run analysis".`,'ok');
+  setStatus('scanStatus',`Demo data loaded: ${S.images.length} images in ${S.folders.size} folders. Nothing you do with it is sent to Media Drive.`,'ok');
 };
 
 /* =========================================================
@@ -1100,7 +1341,7 @@ $('btnDemo').onclick=()=>{
    Unit = what moves: the image's own folder (a pole, moved whole into a feeder) or a single image.
    Group = where a unit sits: the pole's parent folder, or the image's folder.
    ========================================================= */
-const NB = { map:null, layer:null, unit:'pole', tool:'pan', draw:null, lastDraw:null, byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
+const NB = { map:null, layer:null, unit:'pole', view:'all', tool:'pan', draw:null, lastDraw:null, byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
   colors:new Map(), hidden:new Set(), last:null, box:null, fitted:false, ran:false, targetTouched:false };
 const nbPole = () => NB.unit==='pole';
 const nbUnitOf = im => nbPole() ? im.parentId : im.id;
@@ -1147,9 +1388,9 @@ function ensureNbMap(){
   if(NB.map || typeof L==='undefined') return;
   NB.map=L.map('nbMap',{preferCanvas:true,boxZoom:false,maxZoom:21}).setView([35.2,-119.5],6);
   const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
-  const streets=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxNativeZoom:20,maxZoom:21,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'});
+  const streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
   sat.addTo(NB.map);
-  L.control.layers({'Satellite (Esri)':sat,'Streets (CARTO)':streets},null,{position:'topright'}).addTo(NB.map);
+  L.control.layers({'Satellite':sat,'Streets':streets},null,{position:'topright'}).addTo(NB.map);
   L.control.scale({imperial:false}).addTo(NB.map);
   NB.layer=L.layerGroup().addTo(NB.map);
   // Selection tools. Box and Lasso draw on the map (Shift-drag boxes in Pan mode too); Remove, or holding Alt, takes items out.
@@ -1212,9 +1453,9 @@ function nbRender(){
     }
     layers.flat().forEach(m=>m.addTo(NB.layer)); // selected and flagged draw on top
     if(V.pendingMap && bounds.length){ NB.map.invalidateSize(); NB.map.setView(V.pendingMap.c, V.pendingMap.z); V.pendingMap=null; NB.fitted=true; }
-    if(bounds.length && !NB.fitted){ NB.map.invalidateSize(); NB.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); NB.fitted=true; }
+    if(bounds.length && !NB.fitted && $('nbMap').offsetWidth){ NB.map.invalidateSize(); NB.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); NB.fitted=true; }
   }
-  nbLegend(); nbSelInfo(); nbTable();
+  nbLegend(); nbSelInfo(); nbTable(); nbStats();
 }
 function nbLegend(){
   const counts=tally(S.images.filter(i=>i._lat!=null&&nbUnitOf(i)!=null).map(i=>nbGroupOf(nbUnitOf(i)))).sort((a,b)=>folderPath(a[0]).localeCompare(folderPath(b[0])));
@@ -1227,7 +1468,7 @@ function nbSelInfo(){
   $('btnNbSelFlag').disabled=![...NB.flags.keys()].some(u=>!NB.pending.has(u));
   $('btnNbAccept').disabled=$('btnNbSelFlag').disabled;
   $('btnNbSelView').disabled=!S.images.length;
-  if(!us.length){ $('nbSelInfo').textContent=`Use Box or Lasso to select many at once, or click a dot to select ${nbPole()?'its whole pole folder':'it'}. Esc clears.`; NB.targetTouched=false; NB.lastDraw=null; return; }
+  if(!us.length){ $('nbSelInfo').textContent=`Nothing selected. Use Box or Lasso on the map to select many at once, or click a dot to select ${nbPole()?'its whole pole folder':'it'}.`; NB.targetTouched=false; NB.lastDraw=null; return; }
   const imgs=us.reduce((s,u)=>s+(NB.unitImgs.get(u)?.length||0),0);
   $('nbSelInfo').textContent=`${NB.lastDraw?NB.lastDraw+'. ':''}${us.length} ${nbWord(us.length)} selected${nbPole()?` (${imgs} images)`:''}, now in ${tally(us.map(u=>folderPath(nbGroupOf(u)))).map(([p,c])=>`${p} (${c})`).join(', ')}`;
   if(!NB.targetTouched){ // suggest the folder the neighbours of the selection point to
@@ -1245,15 +1486,18 @@ function nbWhy(u){
 }
 function nbTable(){
   const us=[...new Set([...NB.pending.keys(), ...NB.flags.keys()])];
-  const rows=us.map(u=>{ const p=NB.pending.get(u), to=p?p.to:NB.flags.get(u).to; const first=(NB.unitImgs.get(u)||[]).map(nbShotTime).filter(Boolean).sort((a,b)=>a-b)[0]||0;
+  const allRows=us.map(u=>{ const p=NB.pending.get(u), to=p?p.to:NB.flags.get(u).to; const first=(NB.unitImgs.get(u)||[]).map(nbShotTime).filter(Boolean).sort((a,b)=>a-b)[0]||0;
     return {u,p,to,key:folderPath(to)+'\u0000'+String(first).padStart(16,'0')}; }).sort((a,b)=>(b.p?1:0)-(a.p?1:0) || a.key.localeCompare(b.key));
+  const nSug=allRows.filter(r=>!r.p).length, nPend=allRows.length-nSug;
+  $('tvAll').textContent=allRows.length||''; $('tvSug').textContent=nSug||''; $('tvPend').textContent=nPend||'';
+  const rows=allRows.filter(r=> NB.view==='suggested' ? !r.p : NB.view==='pending' ? !!r.p : true);
   const tb=$('nbTbl').querySelector('tbody');
   tb.innerHTML = rows.length ? rows.map(r=>{ const imgs=NB.unitImgs.get(r.u)||[], noGps=imgs.every(i=>i._lat==null), why=nbWhy(r.u);
     return `<tr data-id="${esc(r.u)}"><td>${r.p?'<span class="badge b-info">To move</span>':'<span class="badge b-bad">Suggested</span>'}</td>
     <td class="mono">${esc(nbUnitName(r.u))}${noGps?' <span class="badge b-warn">no GPS</span>':''}</td><td>${imgs.length}</td><td>${esc(folderPath(nbGroupNow(r.u)))}</td><td>${esc(folderPath(r.to))}</td>
     <td>${esc(why[0])}${why.slice(1).map(w=>`<br><span class="badge b-warn">${esc(w)}</span>`).join('')}</td><td class="mono">${esc(nbShotRange(r.u))}</td>
     <td><button class="sm" data-act="${r.p?'drop':'add'}">${r.p?'Remove':'Add'}</button></td></tr>`; }).join('')
-    : `<tr><td colspan="8" class="hint">${NB.ran?'Nothing stands out with these settings. Try a larger radius or lower agreement, or select on the map yourself.':'Press "Find odd ones out", or select on the map yourself.'}</td></tr>`;
+    : `<tr><td colspan="8" class="empty">${ allRows.length && NB.view==='pending' ? 'Nothing in the move list yet. Add suggestions, or select poles and add them.' : allRows.length && NB.view==='suggested' ? 'No open suggestions.' : NB.ran?'Nothing stands out with these settings. Try a larger radius or a lower agreement in Detection settings, or select on the map yourself.':'Press <b>Find odd ones out</b>, or select on the map yourself.'}</td></tr>`;
   const n=NB.pending.size, nf=new Set([...NB.pending.values()].map(p=>p.to)).size, ni=[...NB.pending.keys()].reduce((s,u)=>s+(NB.unitImgs.get(u)?.length||0),0);
   $('nbPendInfo').textContent = n ? `${n} ${nbWord(n)}${nbPole()?` (${ni} images)`:''} in the move list, going to ${nf} folder(s).` : 'Move list is empty.';
   $('btnNbApply').disabled=!n; $('btnNbCsv').disabled=!n;
@@ -1523,10 +1767,154 @@ if(!window.crypto?.subtle){ $('vaultBox').innerHTML='<span class="sub-b bullet">
 else vaultRender();
 
 /* =========================================================
+   Merge split captures: bursts of shots (same drone, seconds apart, same spot) spread over several folders
+   ========================================================= */
+const MG = { map:null, layer:null, groups:[], sel:new Set(), target:new Map(), focus:null, last:null, ran:false, fitted:false };
+function mgDist(a,b){ const k=Math.PI/180, x=(b._lng-a._lng)*k*Math.cos((a._lat+b._lat)/2*k), y=(b._lat-a._lat)*k; return Math.hypot(x,y)*6371000; }
+function ensureMgMap(){
+  if(MG.map || typeof L==='undefined') return;
+  MG.map=L.map('mgMap',{preferCanvas:true,maxZoom:21}).setView([35.2,-119.5],6);
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+  const streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
+  sat.addTo(MG.map); L.control.layers({'Satellite':sat,'Streets':streets},null,{position:'topright'}).addTo(MG.map); L.control.scale({imperial:false}).addTo(MG.map);
+  MG.layer=L.layerGroup().addTo(MG.map);
+}
+function mgReset(){ MG.groups=[]; MG.sel.clear(); MG.target.clear(); MG.focus=null; MG.ran=false; MG.fitted=false;
+  $('btnMgFind').disabled=!S.images.length; $('btnMgUndo').disabled=!MG.last; $('mgApplyStatus').style.display='none';
+  const timed=S.images.filter(im=>nbShotTime(im)!=null).length;
+  setStatus('mgStatus', !S.images.length ? 'Scan Media Drive or load demo data first.' : timed ? `${timed.toLocaleString()} of ${S.images.length.toLocaleString()} images have a capture time. Press "Find split captures".` : 'No capture times found. Bursts are found from the capture time in DJI file names (DJI_YYYYMMDDhhmmss_nnnn) or a capture-time field (Advanced).', timed||!S.images.length?'':'err');
+  mgRender(); }
+function mgFind(){
+  const gap=Math.max(1,+$('mgGap').value||60)*1000, D=Math.max(1,+$('mgDist').value||20), sameDev=$('mgDev').checked;
+  const buckets=new Map();
+  for(const im of S.images){ const t=nbShotTime(im); if(t==null) continue; const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
+  const bursts=[];
+  for(const list of buckets.values()){ list.sort((a,b)=>a[0]-b[0]); let cur=null;
+    for(const [t,im] of list){
+      const anchor=cur&&cur.anchor, ok = cur && t-cur.last<=gap && !(anchor && im._lat!=null && mgDist(anchor,im)>D);
+      if(!ok){ cur={imgs:[],anchor:null,last:t,t0:t}; bursts.push(cur); }
+      cur.imgs.push(im); cur.last=t; if(!cur.anchor && im._lat!=null) cur.anchor=im;
+    } }
+  MG.groups=bursts.filter(b=>b.imgs.length>1 && new Set(b.imgs.map(i=>i.parentId)).size>1).map((b,i)=>{
+    const folders=tally(b.imgs.map(i=>i.parentId)).sort((x,y)=>y[1]-x[1] || S.images.filter(i=>i.parentId===y[0]).length-S.images.filter(i=>i.parentId===x[0]).length);
+    return {id:'g'+i, imgs:b.imgs, t0:b.t0, t1:b.last, folders, suggested:folders[0][0]}; });
+  MG.sel.clear(); MG.target.clear(); MG.focus=null; MG.ran=true;
+  const nf=new Set(MG.groups.flatMap(g=>g.folders.map(f=>f[0]))).size;
+  setStatus('mgStatus', MG.groups.length ? `${MG.groups.length} burst(s) of shots taken together are split across ${nf} folders. Each is suggested to merge into the folder holding most of its shots; change it per row if needed, tick the ones to merge, then press Merge selected.` : 'No split bursts: every burst of shots sits in a single folder.', MG.groups.length?'':'ok');
+  mgRender(); if(MG.groups.length && MG.map && $('mgMap').offsetWidth){ const pts=MG.groups.flatMap(g=>g.imgs).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length) MG.map.fitBounds(pts,{padding:[30,30],maxZoom:18}); }
+}
+const mgTo = g => MG.target.get(g.id) || g.suggested;
+const mgMoves = g => g.imgs.filter(im=>im.parentId!==mgTo(g)).map(im=>({id:im.id,from:im.parentId,to:mgTo(g)}));
+const mgShort = id => { const p=folderPath(id).split(' / '); return p.slice(-2).join(' / '); };
+function mgRender(){
+  ensureMgMap();
+  if(MG.map){ MG.layer.clearLayers(); const inG=new Map(); MG.groups.forEach(g=>g.imgs.forEach(im=>inG.set(im.id,g))); const bounds=[], top=[];
+    for(const im of S.images){ if(im._lat==null) continue; bounds.push([im._lat,im._lng]); const g=inG.get(im.id);
+      if(!g){ L.circleMarker([im._lat,im._lng],{radius:3,color:'#ffffff',weight:.5,fillColor:'#c9cbd1',fillOpacity:.8,interactive:false}).addTo(MG.layer); continue; }
+      const sel=MG.sel.has(g.id)||MG.focus===g.id, c=nbColor(im.parentId);
+      const m=L.circleMarker([im._lat,im._lng],{radius:sel?8:6,color:sel?'#3182ed':'#e51728',weight:3,fillColor:c,fillOpacity:.95});
+      m.bindTooltip(()=>`<b>${esc(im.name)}</b><br>In: ${esc(folderPath(im.parentId))}<br>Burst of ${g.imgs.length} shots across ${g.folders.length} folders<br>Merge into: ${esc(folderPath(mgTo(g)))}`,{direction:'top',offset:[0,-6]});
+      m.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(MG.sel.has(g.id)) MG.sel.delete(g.id); else MG.sel.add(g.id); MG.focus=g.id; mgRender(); });
+      top.push([sel,m]); }
+    top.sort((a,b)=>a[0]-b[0]).forEach(([,m])=>m.addTo(MG.layer));
+    if(bounds.length && !MG.fitted && $('mgMap').offsetWidth){ MG.map.invalidateSize(); MG.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); MG.fitted=true; } }
+  // table
+  const tb=$('mgTbl').querySelector('tbody');
+  tb.innerHTML = MG.groups.length ? MG.groups.map(g=>{ const to=mgTo(g), mv=mgMoves(g).length, sel=MG.sel.has(g.id);
+    const chips=g.folders.map(([f,n])=>`<span class="fchip${f===to?' to':''}" title="${esc(folderPath(f))}"><span class="sw" style="background:${nbColor(f)}"></span>${esc(mgShort(f))} <b>×${n}</b></span>`).join('');
+    const opts=g.folders.map(([f,n])=>`<option value="${esc(f)}" ${f===to?'selected':''}>${esc(mgShort(f))} (${n} here)</option>`).join('');
+    const span=(g.t1-g.t0)/1000;
+    return `<tr data-g="${g.id}" class="${sel?'on':''}${MG.focus===g.id?' focus':''}"><td><input type="checkbox" data-act="pick" ${sel?'checked':''} aria-label="Select burst"></td>
+      <td class="mono">${esc(nbTime(g.t0))}<div class="hint" style="margin:2px 0 0">over ${span<1?'<1':Math.round(span)} s</div></td><td>${g.imgs.length}</td>
+      <td><div class="fchips">${chips}</div></td><td><select class="sm" data-act="to">${opts}</select></td><td>${mv}</td></tr>`; }).join('')
+    : `<tr><td colspan="6" class="empty">${MG.ran?'No split bursts with these settings. Try a longer time or a larger distance.':'Press <b>Find split captures</b> after scanning.'}</td></tr>`;
+  // stats and bar
+  const selG=MG.groups.filter(g=>MG.sel.has(g.id)), mv=selG.reduce((s,g)=>s+mgMoves(g).length,0), f=n=>S.images.length&&MG.ran?n.toLocaleString():'–';
+  $('mgStG').textContent=f(MG.groups.length); $('mgStF').textContent=f(new Set(MG.groups.flatMap(g=>g.folders.map(x=>x[0]))).size);
+  $('mgStS').textContent=f(selG.length); $('mgStI').textContent=f(mv); $('mgCount').textContent=MG.groups.length||'';
+  $('mgEmpty').style.display=S.images.length?'none':'flex';
+  $('mgPendInfo').textContent = selG.length ? `${selG.length} burst(s) selected: ${mv} shot(s) will move into ${new Set(selG.map(mgTo)).size} folder(s).` : 'Nothing selected.';
+  $('btnMgApply').disabled=!mv; $('btnMgCsv').disabled=!selG.length; $('btnMgAll').disabled=!MG.groups.length; $('btnMgNone').disabled=!MG.sel.size;
+}
+$('mgTbl').querySelector('tbody').addEventListener('change', e=>{ const tr=e.target.closest('tr[data-g]'); if(!tr) return; const id=tr.dataset.g;
+  if(e.target.dataset.act==='pick'){ if(e.target.checked) MG.sel.add(id); else MG.sel.delete(id); }
+  if(e.target.dataset.act==='to'){ MG.target.set(id,e.target.value); MG.sel.add(id); }
+  mgRender(); });
+$('mgTbl').querySelector('tbody').addEventListener('click', e=>{ const tr=e.target.closest('tr[data-g]'); if(!tr || e.target.closest('input,select')) return;
+  const g=MG.groups.find(x=>x.id===tr.dataset.g); MG.focus=g.id; const pts=g.imgs.filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]);
+  if(pts.length && MG.map) MG.map.fitBounds(pts,{padding:[80,80],maxZoom:20}); mgRender(); });
+$('btnMgFind').onclick=mgFind;
+$('btnMgAll').onclick=()=>{ MG.groups.forEach(g=>MG.sel.add(g.id)); mgRender(); };
+$('btnMgNone').onclick=()=>{ MG.sel.clear(); mgRender(); };
+$('btnDemo3').onclick=()=>$('btnDemo').click();
+$('btnMgCsv').onclick=()=>{ const rows=MG.groups.filter(g=>MG.sel.has(g.id)).flatMap(g=>g.imgs.map(im=>({burst:g.id, captured:new Date(nbShotTime(im)).toISOString(), id:im.id, name:im.name, current_folder:folderPath(im.parentId), current_folder_id:im.parentId, merge_into:folderPath(mgTo(g)), merge_into_id:mgTo(g), moves:im.parentId!==mgTo(g)?'yes':'', lat:im._lat??'', lng:im._lng??''})));
+  download(`split-bursts_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
+function mgAfterMove(){ // keep the re-file view consistent with the images' new folders
+  NB.byId=new Map(S.images.map(i=>[i.id,i])); NB.unitImgs=new Map();
+  for(const im of S.images){ const u=nbUnitOf(im); if(u==null) continue; if(!NB.unitImgs.has(u)) NB.unitImgs.set(u,[]); NB.unitImgs.get(u).push(im); }
+  nbRender(); }
+async function mgRun(moves, verb){
+  const btns=['btnMgApply','btnMgUndo','btnMgFind']; btns.forEach(b=>$(b).disabled=true); $('mgApplyStatus').style.display='block'; const done=[];
+  const touched=new Set(moves.map(m=>m.from));
+  try{ await nbRunMoves(moves,'image',done);
+    const empty=[...touched].filter(f=>!S.images.some(i=>i.parentId===f) && ![...S.folders.values()].some(c=>c.parentId===f));
+    setStatus('mgApplyStatus',`${verb} ${done.length} shot(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}.${empty.length?` ${empty.length} folder(s) are now empty and were left in place: ${empty.slice(0,6).map(mgShort).join(', ')}${empty.length>6?' …':''}.`:''}`,'ok'); }
+  catch(e){ let msg=e.message||String(e); if(/Failed to fetch|NetworkError/i.test(msg)) msg+='. The browser may be blocked by CORS: export the CSV instead.';
+    setStatus('mgApplyStatus',`Stopped after ${done.length} of ${moves.length}: ${msg}`,'err'); }
+  finally{ btns.forEach(b=>$(b).disabled=false); mgAfterMove(); }
+  return done;
+}
+$('btnMgApply').onclick=async()=>{
+  const selG=MG.groups.filter(g=>MG.sel.has(g.id)), moves=selG.flatMap(mgMoves); if(!moves.length) return;
+  if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in Connect to merge here, or export the CSV.'); return; }
+  const summary=tally(moves.map(m=>folderPath(m.to))).slice(0,12).map(([p,c])=>`  ${c} → ${p}`).join('\n');
+  if(!confirm(`Merge ${selG.length} burst(s): move ${moves.length} shot(s)?${S.demo?' (demo: nothing is sent)':''}\n\n${summary}${moves.length>12?'\n  …':''}\n\nYou can undo this afterwards.`)) return;
+  const done=await mgRun(moves,'Moved');
+  if(done.length) MG.last=done; $('btnMgUndo').disabled=!MG.last;
+  const keepSettings=true; if(keepSettings) mgFind();
+};
+$('btnMgUndo').onclick=async()=>{
+  if(!MG.last) return; const moves=MG.last.map(m=>({id:m.id,from:m.to,to:m.from}));
+  if(!confirm(`Put ${moves.length} shot(s) back where they were?`)) return;
+  const done=await mgRun(moves,'Put back'); const back=new Set(done.map(d=>d.id)); MG.last=MG.last.filter(m=>!back.has(m.id)); if(!MG.last.length) MG.last=null;
+  $('btnMgUndo').disabled=!MG.last; mgFind();
+};
+
+/* =========================================================
+   UI shell: mode switch, stats, empty state, table views
+   ========================================================= */
+function setMode(m){
+  document.body.dataset.mode=m;
+  document.querySelectorAll('.modetabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===m));
+  try{ localStorage.setItem('mdr.mode',m); }catch{}
+  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
+}
+document.querySelectorAll('.modetabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.go));
+function nbStats(){
+  const imgs=S.images.length, ringed=[...NB.flags.keys()].filter(u=>!NB.pending.has(u)).length, f=n=>imgs?n.toLocaleString():'–';
+  $('stUnits').textContent=f(NB.unitImgs.size); $('stUnitsL').textContent=nbPole()?'Pole folders':'Images';
+  $('stImgs').textContent=f(imgs); $('stRinged').textContent=imgs&&NB.ran?ringed.toLocaleString():'–';
+  $('stSel').textContent=f(NB.sel.size); $('stPend').textContent=f(NB.pending.size);
+  $('nbEmpty').style.display=imgs?'none':'flex';
+  $('selBar').classList.toggle('has',NB.sel.size>0);
+  $('nbUnitPole').classList.toggle('active',nbPole()); $('nbUnitImage').classList.toggle('active',!nbPole());
+  const roots=S.items.filter(i=>i._isRoot).length, pill=$('connPill');
+  pill.textContent = !imgs ? 'Not connected' : `${S.demo?'Demo data · ':''}${imgs.toLocaleString()} images${roots>1?` · ${roots} folders`:''}`;
+  pill.classList.toggle('on',!!imgs);
+}
+const nbPickUnit=v=>{ if(v===NB.unit) return; $('nbUnit').value=v; $('nbUnit').onchange({target:$('nbUnit')}); nbStats(); };
+$('nbUnitPole').onclick=()=>nbPickUnit('pole'); $('nbUnitImage').onclick=()=>nbPickUnit('image');
+document.querySelectorAll('#nbViewTabs .tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#nbViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); NB.view=b.dataset.view; nbTable(); });
+$('btnDemo2').onclick=()=>$('btnDemo').click();
+document.addEventListener('click',e=>{ const d=document.querySelector('details.settings[open]'); if(d && !d.contains(e.target)) d.open=false; });
+{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['refile','merge','corridor'].includes(m)?m:'refile'); }
+
+/* =========================================================
    Wire up
    ========================================================= */
 $('btnScan').onclick=scan; $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
-ensureMap(); smResize(); ensureNbMap();
+ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); nbStats(); mgRender();
 </script>
 </body>
 </html>
