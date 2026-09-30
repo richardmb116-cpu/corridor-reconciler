@@ -33,13 +33,19 @@ take them out again), **Select all in view**, or click dots one by one. Keys: B 
 Then pick the destination,
 review the move list, then **Apply moves in Media Drive**. Each run can be undone, and saved as JSON.
 
-### Merge split captures
+### Merge loose and split shots
 
-The **Merge splits** tab finds bursts of shots taken together (same drone, consecutive shots at most
-60 s apart, within 20 m of the burst's first shot; both adjustable) that ended up in more than one
-folder. Each burst is suggested to merge into the folder holding most of its shots; change the
-destination per row, tick the bursts to merge and press **Merge selected**. Shots are moved as
-single images, folders emptied by a merge are left in place (and reported), and the run can be undone.
+The **Merge splits** tab groups each drone's shots into bursts (consecutive shots at most 60 s apart,
+within 20 m of the burst's first shot; both adjustable) and lists what needs putting back together:
+
+- **Loose shots**: shots sitting in a feeder folder (a folder that also holds sub-folders) instead of
+  a pole folder. They go into the pole folder of their own burst, or, when the whole burst is loose,
+  the nearest pole folder on the ground.
+- **Same-name folders**: bursts split between folders with the same name (ignoring `(2)` or `copy`).
+- **Other splits**: any other burst spread over more than one folder.
+
+Change the destination per row, tick what to fix and press **Merge selected**. Shots move as single
+images, folders emptied by a merge are left in place (and reported), and the run can be undone.
 With **Skip duplicate copies** (on by default), a file with the same name and capture second in two
 or more folders, such as an archived original, is treated as a copy and left out.
 

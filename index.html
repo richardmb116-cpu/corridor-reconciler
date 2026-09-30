@@ -259,6 +259,9 @@
   .fchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--cool-200);border-radius:999px;padding:3px 9px 3px 7px;font-size:12px;background:var(--white);white-space:nowrap}
   .fchip b{font-weight:500;color:var(--text-supporting)}
   .fchip.to{border-color:var(--onyx);box-shadow:inset 0 0 0 1px var(--onyx)}
+  .fchip.loose{border-style:dashed;background:var(--amber-50)}
+  .why{flex-basis:100%;font-size:11px;color:var(--text-supporting);margin-top:2px}
+  #mgViewTabs .tab span{color:var(--cool-400);margin-left:2px}
   .fchip .sw{width:9px;height:9px;border-radius:50%;margin:0;border:none}
   #mgTbl tbody tr{cursor:pointer} #mgTbl tbody tr.on td{background:var(--cobalt-50)} #mgTbl tbody tr.focus td:first-child{box-shadow:inset 3px 0 0 var(--cobalt-500)}
   #mgTbl select.sm{width:auto;max-width:240px;padding:5px 8px;font-size:12px}
@@ -508,8 +511,8 @@
     <section class="panel review" id="mgPanel" data-mode="merge">
       <div class="card-h">
         <div>
-          <h2>Merge split captures</h2>
-          <p>Shots taken seconds apart at the same spot belong in one folder. This finds bursts of photos that ended up split across folders, so you can bring each set back together.</p>
+          <h2>Merge loose and split shots</h2>
+          <p>Shots taken seconds apart at the same spot belong in one pole folder. This finds loose shots sitting in a feeder folder, and bursts of photos split across folders, so you can put each set back together.</p>
         </div>
       </div>
       <div class="controls">
@@ -517,10 +520,10 @@
         <label class="inl chk"><input type="checkbox" id="mgDev" checked> Same drone only</label>
         <label class="inl chk" title="A file with the same name and capture time in two folders is a copy (for example an archived original), not a split"><input type="checkbox" id="mgDup" checked> Skip duplicate copies</label>
         <span class="spacer"></span>
-        <button class="primary" id="btnMgFind" disabled>Find split captures</button>
+        <button class="primary" id="btnMgFind" disabled>Find shots to merge</button>
       </div>
       <div class="stats s4">
-        <div class="stat bad"><div class="v" id="mgStG">–</div><div class="l">Split bursts</div></div>
+        <div class="stat bad"><div class="v" id="mgStG">–</div><div class="l">To fix</div></div>
         <div class="stat"><div class="v" id="mgStF">–</div><div class="l">Folders involved</div></div>
         <div class="stat sel"><div class="v" id="mgStS">–</div><div class="l">Selected</div></div>
         <div class="stat pend"><div class="v" id="mgStI">–</div><div class="l">Shots to move</div></div>
@@ -536,17 +539,22 @@
       </div>
       <div class="legend keys">
         <span><span class="dot" style="background:#c9cbd1"></span>Other images</span>
-        <span><span class="dot ring bad"></span>Split burst (coloured by the folder each shot is in now)</span>
+        <span><span class="dot ring bad"></span>To fix, in the tab you are viewing (coloured by the folder each shot is in now)</span>
         <span><span class="dot ring sel"></span>Selected</span>
-        <span class="kbd-hint">Click a dot or a row to select its burst</span>
+        <span class="kbd-hint">Click a dot or a row to select its group</span>
       </div>
       <div class="tblhead">
-        <div class="tabs"><span class="tab active" style="cursor:default">Split bursts <span id="mgCount"></span></span></div>
+        <div class="tabs" id="mgViewTabs">
+          <button class="tab active" data-view="loose" title="Shots sitting in a feeder folder instead of a pole folder">Loose shots <span id="mgCntLoose"></span></button>
+          <button class="tab" data-view="same" title="Bursts split between folders that have the same name">Same-name folders <span id="mgCntSame"></span></button>
+          <button class="tab" data-view="other">Other splits <span id="mgCntOther"></span></button>
+          <button class="tab" data-view="all">All <span id="mgCount"></span></button>
+        </div>
         <span class="spacer"></span>
         <button class="sm" id="btnMgAll" disabled>Select all</button>
         <button class="sm" id="btnMgNone" disabled>Select none</button>
       </div>
-      <div class="tablewrap"><table id="mgTbl"><thead><tr><th style="width:28px"></th><th>Captured</th><th>Shots</th><th>Split across</th><th>Merge into</th><th>Moves</th></tr></thead><tbody><tr><td colspan="6" class="empty">Press <b>Find split captures</b> after scanning.</td></tr></tbody></table></div>
+      <div class="tablewrap"><table id="mgTbl"><thead><tr><th style="width:28px"></th><th>Captured</th><th>Shots</th><th>Split across</th><th>Merge into</th><th>Moves</th></tr></thead><tbody><tr><td colspan="6" class="empty">Press <b>Find shots to merge</b> after scanning.</td></tr></tbody></table></div>
       <div class="applybar">
         <div id="mgPendInfo" class="pendinfo">Nothing selected.</div>
         <span class="spacer"></span>
@@ -1418,6 +1426,8 @@ $('btnDemo').onclick=()=>{
   for(const [bi,pk] of [[1,5],[2,20],[3,33]]){ // bursts of shots at one pole, split across two folders by the upload
     const [la,lo]=along(pk+0.5,0), tb=t0+7200000+bi*600000, f1=pole(`M${pk}`,`Pole M-${String(pk).padStart(3,'0')}`,'fA'), f2=pole(`M${pk}b`,`Pole M-${String(pk).padStart(3,'0')} (2)`,'fA');
     for(let k=0;k<6;k++) items.push(mk(`burst${bi}-${k}`,dji(tb+k*7000,800+bi*10+k),k<4?f1:f2,la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,tb+k*7000)); }
+  for(let k=0;k<3;k++){ const [la,lo]=along(7.2,0), t=t0+7.2*45000+(k+1)*2000; items.push(mk(`loose${k}`,dji(t,900+k),'fA',la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,t)); } // loose beside a pole's shots
+  for(let k=0;k<2;k++){ const [la,lo]=along(30.2,0.00008), t=t0+5*3600000+k*5000; items.push(mk(`lone${k}`,dji(t,950+k),'fA',la,lo,t)); } // loose, nothing else shot then
   $('rootId').value='root'; S.demo=true; S.loadedRoots=[];
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
   setStatus('scanStatus',`Demo data loaded: ${S.images.length} images in ${S.folders.size} folders. Nothing you do with it is sent to Media Drive.`,'ok');
@@ -1857,7 +1867,7 @@ else vaultRender();
 /* =========================================================
    Merge split captures: bursts of shots (same drone, seconds apart, same spot) spread over several folders
    ========================================================= */
-const MG = { map:null, layer:null, groups:[], sel:new Set(), target:new Map(), focus:null, last:null, ran:false, fitted:false };
+const MG = { map:null, layer:null, view:'loose', groups:[], sel:new Set(), target:new Map(), focus:null, last:null, ran:false, fitted:false };
 function mgDist(a,b){ const k=Math.PI/180, x=(b._lng-a._lng)*k*Math.cos((a._lat+b._lat)/2*k), y=(b._lat-a._lat)*k; return Math.hypot(x,y)*6371000; }
 function ensureMgMap(){
   if(MG.map || typeof L==='undefined') return;
@@ -1870,7 +1880,7 @@ function ensureMgMap(){
 function mgReset(){ MG.groups=[]; MG.sel.clear(); MG.target.clear(); MG.focus=null; MG.ran=false; MG.fitted=false;
   $('btnMgFind').disabled=!S.images.length; $('btnMgUndo').disabled=!MG.last; $('mgApplyStatus').style.display='none';
   const timed=S.images.filter(im=>nbShotTime(im)!=null).length;
-  setStatus('mgStatus', !S.images.length ? 'Scan Media Drive or load demo data first.' : timed ? `${timed.toLocaleString()} of ${S.images.length.toLocaleString()} images have a capture time. Press "Find split captures".` : 'No capture times found. Bursts are found from the capture time in DJI file names (DJI_YYYYMMDDhhmmss_nnnn) or a capture-time field (Advanced).', timed||!S.images.length?'':'err');
+  setStatus('mgStatus', !S.images.length ? 'Scan Media Drive or load demo data first.' : timed ? `${timed.toLocaleString()} of ${S.images.length.toLocaleString()} images have a capture time. Press "Find shots to merge".` : 'No capture times found. Bursts are found from the capture time in DJI file names (DJI_YYYYMMDDhhmmss_nnnn) or a capture-time field (Advanced).', timed||!S.images.length?'':'err');
   mgRender(); }
 function mgFind(){
   const gap=Math.max(1,+$('mgGap').value||60)*1000, D=Math.max(1,+$('mgDist').value||20), sameDev=$('mgDev').checked;
@@ -1889,57 +1899,88 @@ function mgFind(){
       if(!ok){ cur={imgs:[],anchor:null,last:t,t0:t}; bursts.push(cur); }
       cur.imgs.push(im); cur.last=t; if(!cur.anchor && im._lat!=null) cur.anchor=im;
     } }
-  MG.groups=bursts.filter(b=>b.imgs.length>1 && new Set(b.imgs.map(i=>i.parentId)).size>1).map((b,i)=>{
-    const folders=tally(b.imgs.map(i=>i.parentId)).sort((x,y)=>y[1]-x[1] || S.images.filter(i=>i.parentId===y[0]).length-S.images.filter(i=>i.parentId===x[0]).length);
-    return {id:'g'+i, imgs:b.imgs, t0:b.t0, t1:b.last, folders, suggested:folders[0][0]}; });
+  // Loose = a shot sitting beside sub-folders (in a feeder folder, not in a pole folder).
+  const hasSub=new Set([...S.folders.values()].map(f=>f.parentId)), isLoose=im=>hasSub.has(im.parentId);
+  const norm=id=>String(S.folders.get(id)?.name||'').toLowerCase().replace(/\s*\(\d+\)\s*$/,'').replace(/[\s_-]*copy$/,'').trim();
+  // pole-folder shots on a grid, to find the nearest pole folder for loose shots that have none in their burst
+  const R=Math.max(60,D*3), grid=new Map(), gk=(x,y)=>x+','+y, P=im=>[Math.floor(im._lng*111320*Math.cos(im._lat*Math.PI/180)/R), Math.floor(im._lat*110574/R)];
+  for(const im of S.images){ if(im._lat==null||isLoose(im)) continue; const [x,y]=P(im); const k=gk(x,y); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push(im); }
+  const nearest=imgs=>{ const c=imgs.find(i=>i._lat!=null); if(!c) return []; const [x,y]=P(c), best=new Map();
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) for(const o of grid.get(gk(x+dx,y+dy))||[]){ const d=mgDist(c,o); if(d<=R && (!best.has(o.parentId)||d<best.get(o.parentId))) best.set(o.parentId,d); }
+    return [...best].sort((a,b)=>a[1]-b[1]).slice(0,3); };
+  MG.groups=[]; let orphans=0;
+  bursts.forEach((b,i)=>{
+    const fset=new Set(b.imgs.map(x=>x.parentId)), loose=b.imgs.some(isLoose);
+    if(!loose && (fset.size<2 || b.imgs.length<2)) return;
+    const folders=tally(b.imgs.map(x=>x.parentId)).sort((x,y)=>y[1]-x[1] || S.images.filter(q=>q.parentId===y[0]).length-S.images.filter(q=>q.parentId===x[0]).length);
+    let kind, suggested, near=null;
+    if(loose){ kind='loose'; const pole=folders.filter(([f])=>!hasSub.has(f));
+      if(pole.length) suggested=pole[0][0]; else { near=nearest(b.imgs); if(!near.length){ orphans+=b.imgs.length; return; } suggested=near[0][0]; } }
+    else { const names=folders.map(([f])=>norm(f)); kind = new Set(names).size<names.length ? 'same' : 'other'; suggested=folders[0][0]; }
+    MG.groups.push({id:'g'+i, kind, imgs:b.imgs, t0:b.t0, t1:b.last, folders, suggested, near, loose:new Set(folders.map(f=>f[0]).filter(f=>hasSub.has(f)))});
+  });
   MG.sel.clear(); MG.target.clear(); MG.focus=null; MG.ran=true;
-  const nf=new Set(MG.groups.flatMap(g=>g.folders.map(f=>f[0]))).size;
+  const n={loose:0,same:0,other:0}; MG.groups.forEach(g=>n[g.kind]++);
+  if(!MG.groups.some(g=>g.kind===MG.view)) MG.view = n.loose?'loose':n.same?'same':'all';
+  document.querySelectorAll('#mgViewTabs .tab').forEach(x=>x.classList.toggle('active',x.dataset.view===MG.view));
   const dupNote = MG.dupShots ? `\n${MG.dupShots.toLocaleString()} shot(s) exist as copies in more than one folder and were left out. If one of the folders loaded is an archive or a raw upload, untick it under Cached folders.` : '';
-  setStatus('mgStatus', (MG.groups.length ? `${MG.groups.length.toLocaleString()} burst(s) of shots taken together are split across ${nf} folders. Each is suggested to merge into the folder holding most of its shots; change it per row if needed, tick the ones to merge, then press Merge selected.` : 'No split bursts: every burst of shots sits in a single folder.')+dupNote, MG.groups.length?'':'ok');
+  const orphNote = orphans ? `\n${orphans.toLocaleString()} loose shot(s) have no pole folder within ${Math.round(R)} m, so no destination is suggested for them.` : '';
+  setStatus('mgStatus', (MG.groups.length
+    ? `Found ${n.loose.toLocaleString()} group(s) of loose shots (sitting in a feeder folder rather than a pole folder), ${n.same.toLocaleString()} burst(s) split between folders with the same name, and ${n.other.toLocaleString()} other split burst(s). Each has a suggested pole folder; change it per row if needed, tick the ones to fix, then press Merge selected.`
+    : 'Nothing to fix: no loose shots, and every burst of shots sits in a single folder.')+dupNote+orphNote, MG.groups.length?'':'ok');
   mgRender(); if(MG.groups.length && MG.map && $('mgMap').offsetWidth){ const pts=MG.groups.flatMap(g=>g.imgs).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length) MG.map.fitBounds(pts,{padding:[30,30],maxZoom:18}); }
 }
 const mgTo = g => MG.target.get(g.id) || g.suggested;
+const MG_KIND = {loose:'Loose shots (not in a pole folder)', same:'Split between same-name folders', other:'Split burst'};
+const mgVisible = () => MG.view==='all' ? MG.groups : MG.groups.filter(g=>g.kind===MG.view);
+MG.limit=200;
 const mgMoves = g => g.imgs.filter(im=>im.parentId!==mgTo(g)).map(im=>({id:im.id,from:im.parentId,to:mgTo(g)}));
 const mgShort = id => { const p=folderPath(id).split(' / '); return p.slice(-2).join(' / '); };
 function mgRender(){
   ensureMgMap();
-  if(MG.map){ MG.layer.clearLayers(); const inG=new Map(); MG.groups.forEach(g=>g.imgs.forEach(im=>inG.set(im.id,g))); const bounds=[], top=[];
+  const vis=mgVisible();
+  if(MG.map){ MG.layer.clearLayers(); const inG=new Map(); vis.forEach(g=>g.imgs.forEach(im=>inG.set(im.id,g))); const bounds=[], top=[];
     for(const im of S.images){ if(im._lat==null) continue; bounds.push([im._lat,im._lng]); const g=inG.get(im.id);
       if(!g){ L.circleMarker([im._lat,im._lng],{radius:3,color:'#ffffff',weight:.5,fillColor:'#c9cbd1',fillOpacity:.8,interactive:false}).addTo(MG.layer); continue; }
       const sel=MG.sel.has(g.id)||MG.focus===g.id, c=nbColor(im.parentId);
       const m=L.circleMarker([im._lat,im._lng],{radius:sel?8:6,color:sel?'#3182ed':'#e51728',weight:3,fillColor:c,fillOpacity:.95});
-      m.bindTooltip(()=>`<b>${esc(im.name)}</b><br>In: ${esc(folderPath(im.parentId))}<br>Burst of ${g.imgs.length} shots across ${g.folders.length} folders<br>Merge into: ${esc(folderPath(mgTo(g)))}`,{direction:'top',offset:[0,-6]});
+      m.bindTooltip(()=>`<b>${esc(im.name)}</b><br>In: ${esc(folderPath(im.parentId))}${g.loose.has(im.parentId)?' <i>(loose)</i>':''}<br>${esc(MG_KIND[g.kind])}: ${g.imgs.length} shot(s)<br>Move into: ${esc(folderPath(mgTo(g)))}`,{direction:'top',offset:[0,-6]});
       m.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(MG.sel.has(g.id)) MG.sel.delete(g.id); else MG.sel.add(g.id); MG.focus=g.id; mgRender(); });
       top.push([sel,m]); }
     top.sort((a,b)=>a[0]-b[0]).forEach(([,m])=>m.addTo(MG.layer));
     if(bounds.length && !MG.fitted && $('mgMap').offsetWidth){ MG.map.invalidateSize(); MG.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); MG.fitted=true; } }
   // table
   const tb=$('mgTbl').querySelector('tbody');
-  tb.innerHTML = MG.groups.length ? MG.groups.map(g=>{ const to=mgTo(g), mv=mgMoves(g).length, sel=MG.sel.has(g.id);
-    const chips=g.folders.map(([f,n])=>`<span class="fchip${f===to?' to':''}" title="${esc(folderPath(f))}"><span class="sw" style="background:${nbColor(f)}"></span>${esc(mgShort(f))} <b>×${n}</b></span>`).join('');
-    const opts=g.folders.map(([f,n])=>`<option value="${esc(f)}" ${f===to?'selected':''}>${esc(mgShort(f))} (${n} here)</option>`).join('');
+  tb.innerHTML = vis.length ? vis.slice(0,MG.limit).map(g=>{ const to=mgTo(g), mv=mgMoves(g).length, sel=MG.sel.has(g.id);
+    const chips=g.folders.map(([f,n])=>`<span class="fchip${f===to?' to':''}${g.loose.has(f)?' loose':''}" title="${esc(folderPath(f))}${g.loose.has(f)?' (loose, not in a pole folder)':''}"><span class="sw" style="background:${nbColor(f)}"></span>${esc(mgShort(f))} <b>×${n}</b></span>`).join('')
+      + `<div class="why">${esc(MG_KIND[g.kind])}${g.near?` · nearest pole folder ${Math.round(g.near[0][1])} m away`:''}</div>`;
+    const cand=[...g.folders.filter(([f])=>!g.loose.has(f)).map(([f,n])=>[f,`${n} here`]), ...(g.near||[]).map(([f,d])=>[f,`${Math.round(d)} m away`]), ...g.folders.filter(([f])=>g.loose.has(f)).map(([f,n])=>[f,`loose, ${n} here`])];
+    const opts=cand.filter((c,i,a)=>a.findIndex(x=>x[0]===c[0])===i).map(([f,t])=>`<option value="${esc(f)}" ${f===to?'selected':''}>${esc(mgShort(f))} (${t})</option>`).join('');
     const span=(g.t1-g.t0)/1000;
     return `<tr data-g="${g.id}" class="${sel?'on':''}${MG.focus===g.id?' focus':''}"><td><input type="checkbox" data-act="pick" ${sel?'checked':''} aria-label="Select burst"></td>
       <td class="mono">${esc(nbTime(g.t0))}<div class="hint" style="margin:2px 0 0">over ${span<1?'<1':Math.round(span)} s</div></td><td>${g.imgs.length}</td>
       <td><div class="fchips">${chips}</div></td><td><select class="sm" data-act="to">${opts}</select></td><td>${mv}</td></tr>`; }).join('')
-    : `<tr><td colspan="6" class="empty">${MG.ran?'No split bursts with these settings. Try a longer time or a larger distance.':'Press <b>Find split captures</b> after scanning.'}</td></tr>`;
+    : `<tr><td colspan="6" class="empty">${MG.ran?(MG.groups.length?'Nothing in this list. Try another tab.':'Nothing to fix with these settings. Try a longer time or a larger distance.'):'Press <b>Find shots to merge</b> after scanning.'}</td></tr>`;
+  if(vis.length>MG.limit) tb.insertAdjacentHTML('beforeend',`<tr><td colspan="6" class="empty"><button class="sm" data-act="more">Show ${Math.min(200,vis.length-MG.limit)} more</button> <span class="hint">(${(vis.length-MG.limit).toLocaleString()} not shown; Select all includes them)</span></td></tr>`);
+  const cnt=k=>MG.groups.filter(g=>g.kind===k).length||''; $('mgCntLoose').textContent=cnt('loose'); $('mgCntSame').textContent=cnt('same'); $('mgCntOther').textContent=cnt('other');
   // stats and bar
   const selG=MG.groups.filter(g=>MG.sel.has(g.id)), mv=selG.reduce((s,g)=>s+mgMoves(g).length,0), f=n=>S.images.length&&MG.ran?n.toLocaleString():'–';
   $('mgStG').textContent=f(MG.groups.length); $('mgStF').textContent=f(new Set(MG.groups.flatMap(g=>g.folders.map(x=>x[0]))).size);
   $('mgStS').textContent=f(selG.length); $('mgStI').textContent=f(mv); $('mgCount').textContent=MG.groups.length||'';
   $('mgEmpty').style.display=S.images.length?'none':'flex';
-  $('mgPendInfo').textContent = selG.length ? `${selG.length} burst(s) selected: ${mv} shot(s) will move into ${new Set(selG.map(mgTo)).size} folder(s).` : 'Nothing selected.';
+  $('mgPendInfo').textContent = selG.length ? `${selG.length.toLocaleString()} group(s) selected: ${mv.toLocaleString()} shot(s) will move into ${new Set(selG.map(mgTo)).size.toLocaleString()} folder(s).` : 'Nothing selected.';
   $('btnMgApply').disabled=!mv; $('btnMgCsv').disabled=!selG.length; $('btnMgAll').disabled=!MG.groups.length; $('btnMgNone').disabled=!MG.sel.size;
 }
 $('mgTbl').querySelector('tbody').addEventListener('change', e=>{ const tr=e.target.closest('tr[data-g]'); if(!tr) return; const id=tr.dataset.g;
   if(e.target.dataset.act==='pick'){ if(e.target.checked) MG.sel.add(id); else MG.sel.delete(id); }
   if(e.target.dataset.act==='to'){ MG.target.set(id,e.target.value); MG.sel.add(id); }
   mgRender(); });
-$('mgTbl').querySelector('tbody').addEventListener('click', e=>{ const tr=e.target.closest('tr[data-g]'); if(!tr || e.target.closest('input,select')) return;
+$('mgTbl').querySelector('tbody').addEventListener('click', e=>{ if(e.target.dataset.act==='more'){ MG.limit+=200; mgRender(); return; } const tr=e.target.closest('tr[data-g]'); if(!tr || e.target.closest('input,select')) return;
   const g=MG.groups.find(x=>x.id===tr.dataset.g); MG.focus=g.id; const pts=g.imgs.filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]);
   if(pts.length && MG.map) MG.map.fitBounds(pts,{padding:[80,80],maxZoom:20}); mgRender(); });
 $('btnMgFind').onclick=mgFind;
-$('btnMgAll').onclick=()=>{ MG.groups.forEach(g=>MG.sel.add(g.id)); mgRender(); };
+$('btnMgAll').onclick=()=>{ mgVisible().forEach(g=>MG.sel.add(g.id)); mgRender(); };
+document.querySelectorAll('#mgViewTabs .tab').forEach(b=>b.onclick=()=>{ MG.view=b.dataset.view; MG.limit=200; document.querySelectorAll('#mgViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); mgRender(); });
 $('btnMgNone').onclick=()=>{ MG.sel.clear(); mgRender(); };
 $('btnDemo3').onclick=()=>$('btnDemo').click();
 $('btnMgCsv').onclick=()=>{ const rows=MG.groups.filter(g=>MG.sel.has(g.id)).flatMap(g=>g.imgs.map(im=>({burst:g.id, captured:new Date(nbShotTime(im)).toISOString(), id:im.id, name:im.name, current_folder:folderPath(im.parentId), current_folder_id:im.parentId, merge_into:folderPath(mgTo(g)), merge_into_id:mgTo(g), moves:im.parentId!==mgTo(g)?'yes':'', lat:im._lat??'', lng:im._lng??''})));
