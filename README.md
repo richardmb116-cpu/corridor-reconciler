@@ -40,13 +40,14 @@ The **Merge splits** tab finds bursts of shots taken together (same drone, conse
 folder. Each burst is suggested to merge into the folder holding most of its shots; change the
 destination per row, tick the bursts to merge and press **Merge selected**. Shots are moved as
 single images, folders emptied by a merge are left in place (and reported), and the run can be undone.
+With **Skip duplicate copies** (on by default), a file with the same name and capture second in two
+or more folders, such as an archived original, is treated as a copy and left out.
 
 ### Scan cache
 
 Each scanned folder's tree is kept in this browser (IndexedDB), so pressing **Scan** again loads it
 instantly, even without a token. **Rescan fresh** ignores the cache (to pick up new uploads), and
-↻ next to a cached folder rescans just that one. Tick cached folders to choose which ones to load
-together. Moves made here update the cache. The cache holds file names, folder names, GPS and
+↻ next to a cached folder rescans just that one. Ticking or unticking a cached folder loads exactly the ticked set straight away. Moves made here update the cache. The cache holds file names, folder names, GPS and
 times (not images) and is not encrypted; **Clear cache** removes it.
 
 ### Corridor analysis

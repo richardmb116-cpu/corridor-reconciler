@@ -268,7 +268,7 @@
   .crow{display:flex;align-items:center;gap:6px;padding:5px 6px;margin:0 -6px;border-radius:var(--radius-md)}
   .crow:hover{background:var(--chalk)}
   .crow.on .cname{font-weight:500}
-  .crow.on .cname::after{content:"loaded";margin-left:6px;font:400 9px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--emerald-700);background:var(--emerald-50);padding:2px 5px;border-radius:var(--radius-xs);vertical-align:1px}
+  .ltag{flex:none;margin-left:6px;font:400 9px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--emerald-700);background:var(--emerald-50);padding:3px 5px;border-radius:var(--radius-xs)}
   .crow label.chk{flex:1;min-width:0;font-size:13px}
   .cname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .cmeta{font-size:11px;color:var(--text-supporting);white-space:nowrap}
@@ -515,6 +515,7 @@
       <div class="controls">
         <div class="ctl"><span class="ctl-l">Shots within</span><input type="number" id="mgGap" value="60" min="5" step="5" class="numsm" aria-label="Seconds between shots"><span class="ctl-l">seconds and</span><input type="number" id="mgDist" value="20" min="1" step="5" class="numsm" aria-label="Metres from the first shot"><span class="ctl-l">metres</span></div>
         <label class="inl chk"><input type="checkbox" id="mgDev" checked> Same drone only</label>
+        <label class="inl chk" title="A file with the same name and capture time in two folders is a copy (for example an archived original), not a split"><input type="checkbox" id="mgDup" checked> Skip duplicate copies</label>
         <span class="spacer"></span>
         <button class="primary" id="btnMgFind" disabled>Find split captures</button>
       </div>
@@ -745,27 +746,38 @@ function scSubtree(rootId, items){ const kids=new Map(); for(const it of items){
   const out=[], q=[rootId], seen=new Set(); const root=items.find(i=>i.id===rootId); if(root) out.push(root);
   while(q.length){ const id=q.shift(); if(seen.has(id)) continue; seen.add(id); for(const k of kids.get(id)||[]){ out.push(k); if(isFolder(k)) q.push(k.id); } }
   return out; }
-function scRecord(root, sub, scannedAt){ return { key:scKey(root.id), rootId:root.id, name:root.name||root.id, endpoint:$('endpoint').value.trim(), extra:$('extraFields').value.trim(),
+function scRecord(root, sub, scannedAt, reqId){ const id=reqId||root.id; return { key:scKey(id), rootId:id, apiId:root.id, name:root.name||root.id, endpoint:$('endpoint').value.trim(), extra:$('extraFields').value.trim(),
   scannedAt, editedAt:Date.now(), items:scStrip(sub), images:sub.filter(isImage).length, folders:sub.filter(isFolder).length }; }
 // after moves, keep each loaded folder's cached tree in step with what is on screen
 async function scSyncLoaded(){ if(S.demo || !SC.ok) return; const recs=new Map((await scAll()).map(r=>[r.key,r]));
-  for(const root of S.items.filter(i=>i._isRoot)){ const old=recs.get(scKey(root.id)); if(!old) continue; await scPut(scRecord(root, scSubtree(root.id,S.items), old.scannedAt)); }
+  for(const L of S.loadedRoots||[]){ const old=recs.get(scKey(L.req)), root=S.items.find(i=>i.id===L.id); if(!old||!root) continue; await scPut(scRecord(root, scSubtree(L.id,S.items), old.scannedAt, L.req)); }
   scRenderList(); }
 async function scRenderList(){
   if(!SC.ok){ $('cacheBox').style.display='none'; return; }
   const ep=$('endpoint').value.trim(); SC.list=(await scAll()).filter(r=>r.endpoint===ep).sort((a,b)=>a.name.localeCompare(b.name));
   $('cacheBox').style.display=SC.list.length?'block':'none';
-  const loaded=new Set(S.items.filter(i=>i._isRoot).map(i=>i.id)), wanted=new Set(parseFolderIds($('rootId').value));
+  const loaded=new Set((S.loadedRoots||[]).map(L=>L.req)), wanted=new Set(parseFolderIds($('rootId').value));
   $('cacheList').innerHTML=SC.list.map(r=>`<div class="crow${loaded.has(r.rootId)?' on':''}" data-id="${esc(r.rootId)}">
-      <label class="inl chk"><input type="checkbox" data-act="tick" ${wanted.has(r.rootId)?'checked':''}><span class="cname" title="${esc(r.rootId)}">${esc(r.name)}</span></label>
+      <label class="inl chk"><input type="checkbox" data-act="tick" ${wanted.has(r.rootId)?'checked':''}><span class="cname" title="${esc(r.name)}">${esc(r.name)}</span>${loaded.has(r.rootId)?'<span class="ltag">on screen</span>':''}</label>
       <span class="cmeta">${r.images.toLocaleString()} images · ${fmtAge(r.scannedAt)}</span>
       <button class="icon" data-act="refresh" title="Rescan this folder from Media Drive">↻</button><button class="icon" data-act="drop" title="Remove from cache">×</button></div>`).join('');
 }
 $('cacheList').addEventListener('change', e=>{ if(e.target.dataset.act!=='tick') return; const id=e.target.closest('.crow').dataset.id; const ids=parseFolderIds($('rootId').value);
-  const next = e.target.checked ? [...ids.filter(x=>x!==id), id] : ids.filter(x=>x!==id); $('rootId').value=next.join('\n'); });
+  const next = e.target.checked ? [...ids.filter(x=>x!==id), id] : ids.filter(x=>x!==id); $('rootId').value=next.join('\n');
+  const cached=new Set(SC.list.map(r=>r.rootId));
+  if(!next.length){ S.loadedRoots=[]; S.demo=false; ingest([]); setStatus('scanStatus','No folders ticked. Tick a cached folder, or add a folder ID above and press Scan.'); scRenderList(); return; }
+  if(next.every(x=>cached.has(x))) scan(); // cached: the ticked set loads instantly
+  else setStatus('scanStatus','Folder list updated. Press Scan to load it (folders not cached yet will be scanned from Media Drive).'); });
 $('cacheList').addEventListener('click', async e=>{ const act=e.target.dataset.act; if(!act||act==='tick') return; const id=e.target.closest('.crow').dataset.id;
   if(act==='drop'){ await scDel(scKey(id)); scRenderList(); return; }
-  if(act==='refresh'){ if(!parseFolderIds($('rootId').value).includes(id)) $('rootId').value=[...parseFolderIds($('rootId').value), id].join('\n'); scan({fresh:new Set([id])}); } });
+  if(act==='refresh'){ if(parseFolderIds($('rootId').value).includes(id)) scan({fresh:new Set([id])}); else scRefreshOnly(id); } });
+async function scRefreshOnly(id){ // rescan a folder into the cache without loading it
+  if(!$('pat').value.trim()){ setStatus('scanStatus','Enter your Personal Access Token to rescan.','err'); return; }
+  S.cancel=false; $('prog').style.display='block'; $('btnCancel').disabled=false;
+  try{ const sub=await scanRoot(id,new Set(),[],{folders:0,files:0}); await scPut(scRecord(sub[0],sub,Date.now(),id));
+    setStatus('scanStatus',`"${sub[0].name||id}" rescanned into the cache (not loaded: tick it to view it).`,'ok'); }
+  catch(e){ setStatus('scanStatus','Error: '+(e.message||e),'err'); }
+  finally{ $('prog').style.display='none'; $('btnCancel').disabled=true; scRenderList(); } }
 $('btnCacheClear').onclick=async()=>{ if(!confirm('Remove every cached folder from this browser? Your folders in Media Drive are not affected.')) return; for(const r of await scAll()) await scDel(r.key); scRenderList(); };
 $('btnScanFresh').onclick=()=>scan({fresh:'all'});
 ['rootId','endpoint'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(SC.t); SC.t=setTimeout(scRenderList,250); }));
@@ -790,23 +802,25 @@ async function scan(opts={}){
   S.cancel=false; $('btnScan').disabled=true; $('btnScanFresh').disabled=true; $('btnCancel').disabled=false; $('prog').style.display='block'; $('prog').removeAttribute('value');
   try{
     const rootIds=parseFolderIds($('rootId').value); if(!rootIds.length) throw new Error('Enter at least one folder ID to scan.');
-    const items=[], seen=new Set(), counts={folders:0,files:0}, fromCache=[], fresh=[];
+    const items=[], seen=new Set(), counts={folders:0,files:0}, fromCache=[], fresh=[], loaded=[];
     for(const [n,id] of rootIds.entries()){
       const forced = opts.fresh==='all' || (opts.fresh instanceof Set && opts.fresh.has(id));
       const rec = forced ? null : await scGet(id);
       if(rec && rec.extra===$('extraFields').value.trim()){
         for(const it of rec.items){ if(!seen.has(it.id)){ seen.add(it.id); items.push({...it}); } }
-        fromCache.push(rec); continue;
+        fromCache.push(rec); loaded.push({req:id, id:rec.apiId||rec.rootId, name:rec.name}); continue;
       }
       if(!$('pat').value.trim()) throw new Error(`"${rec?.name||id}" is not cached yet, so it has to be scanned: enter your Personal Access Token first.`);
       setStatus('scanStatus',`Scanning folder ${n+1} of ${rootIds.length}…`);
-      const sub=await scanRoot(id, seen, items, counts); items.push(...sub); fresh.push(sub[0]);
-      await scPut(scRecord(sub[0], sub, Date.now()));
+      const sub=await scanRoot(id, seen, items, counts); items.push(...sub); fresh.push(sub[0]); loaded.push({req:id, id:sub[0].id, name:sub[0].name||id});
+      await scPut(scRecord(sub[0], sub, Date.now(), id));
     }
-    markRoots(items); S.demo=false; ingest(items); if(fresh.length) vaultRememberToken();
+    markRoots(items); S.loadedRoots=loaded; S.demo=false; ingest(items); if(fresh.length) vaultRememberToken();
     const tops=items.filter(i=>i._isRoot).length, oldest=fromCache.length?Math.min(...fromCache.map(r=>r.scannedAt)):null;
     const how = !fromCache.length ? 'Scanned from Media Drive' : !fresh.length ? `Loaded from cache (scanned ${fmtAge(oldest)})` : `${fresh.length} scanned, ${fromCache.length} from cache`;
-    setStatus('scanStatus',`${how}${tops>1?` · ${tops} folders`:''}: ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders.${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
+    const names=loaded.map(L=>L.name).join(', ');
+    setStatus('scanStatus',`${how}: ${names}. ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders.${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
+    void tops;
   }catch(e){
     let msg = e.message||String(e);
     if(/Failed to fetch|NetworkError|CORS/i.test(msg)) msg += '\n\nThis usually means the browser was blocked by CORS. Run fetch_media_drive.py to export a JSON file, then load it under "Advanced and offline".';
@@ -1360,7 +1374,7 @@ $('jsonFile').onchange=async e=>{
     for(const f of files){ let data=JSON.parse(await f.text()); if(data.kind==='sitemap') throw new Error(`${f.name} is a site map JSON; load it in the Site map panel.`); if(!Array.isArray(data)) data=data.items||data.data?.items||[]; if(!data.length) throw new Error(`No items array found in ${f.name}`);
       for(const it of data) byId.set(it.id,it); }
     const data=[...byId.values()]; markRoots(data);
-    S.demo=false; ingest(data); setStatus('scanStatus',`Loaded ${data.length} items from ${files.length>1?`${files.length} files`:files[0].name}: ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+    S.loadedRoots=[]; S.demo=false; ingest(data); setStatus('scanStatus',`Loaded ${data.length} items from ${files.length>1?`${files.length} files`:files[0].name}: ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
   }catch(err){ setStatus('scanStatus','Error reading JSON: '+err.message,'err'); }
   e.target.value='';
 };
@@ -1404,7 +1418,7 @@ $('btnDemo').onclick=()=>{
   for(const [bi,pk] of [[1,5],[2,20],[3,33]]){ // bursts of shots at one pole, split across two folders by the upload
     const [la,lo]=along(pk+0.5,0), tb=t0+7200000+bi*600000, f1=pole(`M${pk}`,`Pole M-${String(pk).padStart(3,'0')}`,'fA'), f2=pole(`M${pk}b`,`Pole M-${String(pk).padStart(3,'0')} (2)`,'fA');
     for(let k=0;k<6;k++) items.push(mk(`burst${bi}-${k}`,dji(tb+k*7000,800+bi*10+k),k<4?f1:f2,la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,tb+k*7000)); }
-  $('rootId').value='root'; S.demo=true;
+  $('rootId').value='root'; S.demo=true; S.loadedRoots=[];
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
   setStatus('scanStatus',`Demo data loaded: ${S.images.length} images in ${S.folders.size} folders. Nothing you do with it is sent to Media Drive.`,'ok');
 };
@@ -1860,8 +1874,14 @@ function mgReset(){ MG.groups=[]; MG.sel.clear(); MG.target.clear(); MG.focus=nu
   mgRender(); }
 function mgFind(){
   const gap=Math.max(1,+$('mgGap').value||60)*1000, D=Math.max(1,+$('mgDist').value||20), sameDev=$('mgDev').checked;
+  // the same file (name and capture second) in two or more folders is a copy, not a split capture
+  const skip=new Set(); let dupShots=0;
+  if($('mgDup').checked){ const byKey=new Map();
+    for(const im of S.images){ const t=nbShotTime(im); if(t==null) continue; const k=String(im.name||'').toLowerCase()+'|'+Math.round(t/1000); if(!byKey.has(k)) byKey.set(k,[]); byKey.get(k).push(im); }
+    for(const list of byKey.values()) if(list.length>1 && new Set(list.map(i=>i.parentId)).size>1){ dupShots++; list.forEach(i=>skip.add(i.id)); } }
+  MG.dupShots=dupShots;
   const buckets=new Map();
-  for(const im of S.images){ const t=nbShotTime(im); if(t==null) continue; const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
+  for(const im of S.images){ if(skip.has(im.id)) continue; const t=nbShotTime(im); if(t==null) continue; const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
   const bursts=[];
   for(const list of buckets.values()){ list.sort((a,b)=>a[0]-b[0]); let cur=null;
     for(const [t,im] of list){
@@ -1874,7 +1894,8 @@ function mgFind(){
     return {id:'g'+i, imgs:b.imgs, t0:b.t0, t1:b.last, folders, suggested:folders[0][0]}; });
   MG.sel.clear(); MG.target.clear(); MG.focus=null; MG.ran=true;
   const nf=new Set(MG.groups.flatMap(g=>g.folders.map(f=>f[0]))).size;
-  setStatus('mgStatus', MG.groups.length ? `${MG.groups.length} burst(s) of shots taken together are split across ${nf} folders. Each is suggested to merge into the folder holding most of its shots; change it per row if needed, tick the ones to merge, then press Merge selected.` : 'No split bursts: every burst of shots sits in a single folder.', MG.groups.length?'':'ok');
+  const dupNote = MG.dupShots ? `\n${MG.dupShots.toLocaleString()} shot(s) exist as copies in more than one folder and were left out. If one of the folders loaded is an archive or a raw upload, untick it under Cached folders.` : '';
+  setStatus('mgStatus', (MG.groups.length ? `${MG.groups.length.toLocaleString()} burst(s) of shots taken together are split across ${nf} folders. Each is suggested to merge into the folder holding most of its shots; change it per row if needed, tick the ones to merge, then press Merge selected.` : 'No split bursts: every burst of shots sits in a single folder.')+dupNote, MG.groups.length?'':'ok');
   mgRender(); if(MG.groups.length && MG.map && $('mgMap').offsetWidth){ const pts=MG.groups.flatMap(g=>g.imgs).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length) MG.map.fitBounds(pts,{padding:[30,30],maxZoom:18}); }
 }
 const mgTo = g => MG.target.get(g.id) || g.suggested;
@@ -1972,9 +1993,9 @@ function nbStats(){
   $('nbEmpty').style.display=imgs?'none':'flex';
   $('selBar').classList.toggle('has',NB.sel.size>0);
   $('nbUnitPole').classList.toggle('active',nbPole()); $('nbUnitImage').classList.toggle('active',!nbPole());
-  const roots=S.items.filter(i=>i._isRoot).length, pill=$('connPill');
-  pill.textContent = !imgs ? 'Not connected' : `${S.demo?'Demo data · ':''}${imgs.toLocaleString()} images${roots>1?` · ${roots} folders`:''}`;
-  pill.classList.toggle('on',!!imgs);
+  const roots=(S.loadedRoots||[]).length, pill=$('connPill');
+  pill.textContent = !imgs ? (roots?`0 images · ${roots} folder${roots>1?'s':''}`:'Not connected') : `${S.demo?'Demo data · ':''}${imgs.toLocaleString()} images${roots>1?` · ${roots} folders`:''}`;
+  pill.classList.toggle('on',!!imgs||!!roots);
 }
 const nbPickUnit=v=>{ if(v===NB.unit) return; $('nbUnit').value=v; $('nbUnit').onchange({target:$('nbUnit')}); nbStats(); };
 $('nbUnitPole').onclick=()=>nbPickUnit('pole'); $('nbUnitImage').onclick=()=>nbPickUnit('image');
