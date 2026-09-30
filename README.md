@@ -10,7 +10,7 @@ the Personal Access Token is held in memory only and never stored or sent anywhe
 
 Open the hosted page (GitHub Pages, see below) or `index.html` locally, then:
 
-1. **Connect**: paste a `ul_pat_...` token (Profile > Developers) and the root folder ID from the
+1. **Connect**: paste a `ul_pat_...` token (Profile > Developers) and one or more folder IDs or links (one per line) from the
    cloud.unleashlive.com URL. The scan walks every sub-folder and reads GPS and timestamps.
 2. **Add corridors**: KML/KMZ/GeoJSON lines, or waypoint files (Points are connected in sequence,
    file or nearest-neighbour order; over-long segments are flagged as bridges across missing waypoints
@@ -53,7 +53,7 @@ Pushing to `main` runs the Pages workflow. In the repository settings, under **P
 ## CORS note
 
 If the hosted page cannot reach the Media Drive API from the browser, export with
-`tools/fetch_media_drive.py <ROOT_FOLDER_ID>` (token in `UNLEASH_PAT`) and load the JSON under
+`tools/fetch_media_drive.py <FOLDER_ID> [<FOLDER_ID> ...]` (token in `UNLEASH_PAT`) and load the JSON under
 **Advanced / offline options**.
 
 ## Design

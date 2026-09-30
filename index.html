@@ -147,9 +147,9 @@
       <div class="step"><span class="n">01</span><h3>Connect to Media Drive</h3></div>
       <label>Personal Access Token (ul_pat_…)</label>
       <input type="password" id="pat" placeholder="Bearer token from Profile → Developers" autocomplete="off">
-      <label>Root folder ID to scan (recursive)</label>
-      <input type="text" id="rootId" placeholder="Folder ID from the cloud.unleashlive.com URL">
-      <div class="hint">Everything under this folder will be listed, including sub-folders. Use the project or site folder that contains both the "right" and the "wrong" locations.</div>
+      <label>Folders to scan (recursive): one ID or Media Drive link per line</label>
+      <textarea id="rootId" rows="3" placeholder="Folder ID or link from cloud.unleashlive.com&#10;Add more lines to scan several folders together" style="resize:vertical;font-family:var(--font-mono);font-size:12px"></textarea>
+      <div class="hint">Everything under each folder is listed, including sub-folders, and all of them are reviewed together, so images can be moved between them. Include every folder that holds both the "right" and the "wrong" locations. Commas or spaces also separate IDs.</div>
       <div class="row" style="margin-top:10px">
         <button class="primary" id="btnScan">Scan Media Drive</button>
         <button id="btnCancel" disabled>Cancel</button>
@@ -164,7 +164,7 @@
         <input type="text" id="extraFields" placeholder="e.g. dateTimeOriginal, takenAt">
         <div class="hint">If Unleash Live exposes a capture-time field on <span class="mono">metadata</span>, add it here and it will be preferred over <span class="mono">createdAt</span>. Unknown fields will make the query fail, so add one at a time.</div>
         <label>Or load items from a JSON export instead of calling the API</label>
-        <input type="file" id="jsonFile" accept=".json,application/json">
+        <input type="file" id="jsonFile" accept=".json,application/json" multiple>
         <div class="hint">Use the bundled <span class="mono">fetch_media_drive.py</span> helper if the browser is blocked by CORS. It writes a JSON file this page can read.</div>
         <div class="row" style="margin-top:8px">
           <button id="btnDemo">Load demo data</button>
@@ -419,17 +419,34 @@ function isImage(it){
   if (t==='I'||t==='IMAGE') return true;
   return /^image\//i.test(it.mimeType||'') || /\.(jpe?g|png|tiff?|dng|heic|webp)$/i.test(it.name||'');
 }
+// Folder IDs from pasted text: bare IDs or Media Drive links, separated by lines, commas or spaces
+function parseFolderIds(text){
+  const out=[];
+  for(const tok of String(text||'').split(/[\s,;]+/).map(t=>t.trim()).filter(Boolean)){
+    let id=tok;
+    if(/^https?:\/\//i.test(tok)){ try{ const u=new URL(tok); id=u.searchParams.get('folderId')||u.searchParams.get('folder')||u.searchParams.get('id')||u.pathname.split('/').filter(Boolean).pop()||''; }catch{ id=''; } }
+    if(id && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+// Top-level folders of a scan: the ones whose parent was not scanned. A folder nested in another scanned folder is not a root.
+function markRoots(items){
+  const ids=new Set(items.map(i=>i.id));
+  for(const it of items){ if(isFolder(it)){ if(!ids.has(it.parentId)) it._isRoot=true; else delete it._isRoot; } }
+}
 function childLocation(folder){ const loc = (folder.location||'').replace(/#/g,'/'); return loc ? `${loc}/${folder.id}` : folder.id; }
 async function scan(){
   S.cancel=false; $('btnScan').disabled=true; $('btnCancel').disabled=false; $('prog').style.display='block'; $('prog').removeAttribute('value');
   try{
     if(!$('pat').value.trim()) throw new Error('Enter your Personal Access Token first.');
-    const rootId=$('rootId').value.trim(); if(!rootId) throw new Error('Enter the root folder ID.');
-    setStatus('scanStatus','Fetching root folder…');
-    const root = await getItem(rootId);
-    if(!root) throw new Error('Root folder not found (check the ID and that the token has access to this team).');
-    root._isRoot=true;
-    const items=[root]; const queue=[root]; let folderCount=1, fileCount=0;
+    const rootIds=parseFolderIds($('rootId').value); if(!rootIds.length) throw new Error('Enter at least one folder ID to scan.');
+    const items=[], queue=[], seen=new Set(); let folderCount=0, fileCount=0;
+    for(const [n,id] of rootIds.entries()){
+      setStatus('scanStatus',`Fetching folder ${n+1} of ${rootIds.length}…`);
+      const root = await getItem(id);
+      if(!root) throw new Error(`Folder ${id} not found (check the ID and that the token has access to this team).`);
+      if(!seen.has(root.id)){ seen.add(root.id); root._isRoot=true; items.push(root); queue.push(root); folderCount++; }
+    }
     while(queue.length){
       if(S.cancel) throw new Error('Cancelled');
       const f=queue.shift();
@@ -437,10 +454,11 @@ async function scan(){
       let kids;
       try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Listing "${f.name||f.id}" … ${n} items so far (folders: ${folderCount}, files: ${fileCount})`)); }
       catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
-      for(const k of kids){ items.push(k); if(isFolder(k)){ folderCount++; queue.push(k); } else fileCount++; }
+      for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); items.push(k); if(isFolder(k)){ folderCount++; queue.push(k); } else fileCount++; }
     }
-    S.demo=false; ingest(items);
-    setStatus('scanStatus',`Scan complete: ${folderCount} folders, ${fileCount} files, ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+    markRoots(items); S.demo=false; ingest(items);
+    const tops=items.filter(i=>i._isRoot).length;
+    setStatus('scanStatus',`Scan complete${tops>1?` (${tops} folders)`:''}: ${folderCount} folders, ${fileCount} files, ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
   }catch(e){
     let msg = e.message||String(e);
     if(/Failed to fetch|NetworkError|CORS/i.test(msg)) msg += '\n\nThis usually means the browser was blocked by CORS. Run fetch_media_drive.py to export a JSON file, then load it under "Advanced / offline options".';
@@ -989,10 +1007,12 @@ $('btnMutation').onclick=async()=>{
 };
 $('btnSaveJson').onclick=()=>download(`media-drive-items_${stamp()}.json`, JSON.stringify(S.items.map(({_lat,_lng,_time,_timeSrc,_folderPath,...rest})=>rest)),'application/json');
 $('jsonFile').onchange=async e=>{
-  const f=e.target.files[0]; if(!f) return;
-  try{ let data=JSON.parse(await f.text()); if(data.kind==='sitemap') throw new Error('That is a site map JSON; load it in the Site map panel.'); if(!Array.isArray(data)) data=data.items||data.data?.items||[]; if(!data.length) throw new Error('No items array found');
-    const rootId=$('rootId').value.trim(); const root = data.find(i=>i.id===rootId) || data.find(i=>isFolder(i)&&!data.some(j=>j.id===i.parentId)); if(root) root._isRoot=true;
-    S.demo=false; ingest(data); setStatus('scanStatus',`Loaded ${data.length} items from ${f.name}: ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
+  const files=[...e.target.files]; if(!files.length) return;
+  try{ const byId=new Map();
+    for(const f of files){ let data=JSON.parse(await f.text()); if(data.kind==='sitemap') throw new Error(`${f.name} is a site map JSON; load it in the Site map panel.`); if(!Array.isArray(data)) data=data.items||data.data?.items||[]; if(!data.length) throw new Error(`No items array found in ${f.name}`);
+      for(const it of data) byId.set(it.id,it); }
+    const data=[...byId.values()]; markRoots(data);
+    S.demo=false; ingest(data); setStatus('scanStatus',`Loaded ${data.length} items from ${files.length>1?`${files.length} files`:files[0].name}: ${S.images.length} images (${S.images.filter(i=>i._lat!=null).length} with GPS).`,'ok');
   }catch(err){ setStatus('scanStatus','Error reading JSON: '+err.message,'err'); }
   e.target.value='';
 };
@@ -1073,9 +1093,8 @@ function nbReset(){
   NB.best.clear(); NB.flags.clear(); NB.sel.clear(); NB.pending.clear(); NB.hidden.clear(); NB.colors.clear();
   NB.fitted=false; NB.ran=false; NB.targetTouched=false;
   [...new Set([...NB.unitImgs.keys()].map(nbGroupNow))].sort((a,b)=>folderPath(a).localeCompare(folderPath(b))).forEach(nbColor);
-  // targets: in pole mode, folders that hold other folders (feeders); in image mode, any folder
-  const holds=new Set([...S.folders.values()].map(f=>f.parentId));
-  const list=[...S.folders.values()].filter(f=>!nbPole()||holds.has(f.id)).map(f=>({id:f.id,path:folderPath(f.id),
+  // targets: in pole mode, any folder that is not itself a pole (holds images); empty feeders included. In image mode, any folder.
+  const list=[...S.folders.values()].filter(f=>!nbPole()||!NB.unitImgs.has(f.id)).map(f=>({id:f.id,path:folderPath(f.id),
     n: nbPole() ? [...S.folders.values()].filter(c=>c.parentId===f.id).length : S.images.filter(i=>i.parentId===f.id).length})).sort((a,b)=>a.path.localeCompare(b.path));
   $('nbTarget').innerHTML='<option value="">(choose folder)</option>'+list.map(f=>`<option value="${esc(f.id)}">${esc(f.path)} (${f.n} ${nbPole()?'folders':'images'})</option>`).join('');
   $('nbTargetLbl').textContent = nbPole() ? 'Move selected pole folders into' : 'Move selected images to';
@@ -1258,11 +1277,12 @@ async function nbRunMoves(moves, kind, done){
     for(let i=0;i<list.length;i+=50){
       const chunk=list.slice(i,i+50);
       setStatus('nbApplyStatus',`Moving ${done.length+1}–${done.length+chunk.length} of ${moves.length} → ${folderPath(to)} …`);
-      if(!S.demo) await gql(`mutation MoveItems { move(moveItems: [${chunk.map(m=>`{id: ${JSON.stringify(m.id)}}`).join(', ')}], to: {id: ${JSON.stringify(to)}}) { id parentId location } }`);
+      const res = S.demo ? null : await gql(`mutation MoveItems { move(moveItems: [${chunk.map(m=>`{id: ${JSON.stringify(m.id)}}`).join(', ')}], to: {id: ${JSON.stringify(to)}}) { id parentId location } }`);
+      const newLoc=new Map([].concat(res?.move||[]).filter(x=>x&&x.id).map(x=>[x.id,x.location]));
       for(const m of chunk){
         const item = kind==='pole' ? S.folders.get(m.id) : S.images.find(i=>i.id===m.id);
         done.push({id:m.id,kind,name:item?.name||m.id,from:m.from,from_path:folderPath(m.from),to:m.to,to_path:folderPath(m.to)});
-        if(item) item.parentId=m.to;
+        if(item){ item.parentId=m.to; if(newLoc.get(m.id)) item.location=newLoc.get(m.id); } // keep location current so a moved folder can still be listed
       }
     }
   }

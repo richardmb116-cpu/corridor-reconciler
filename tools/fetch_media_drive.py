@@ -7,7 +7,9 @@ Python standard library only.
 
 Usage:
     set UNLEASH_PAT=ul_pat_xxxxxxxx        (Windows)   |   export UNLEASH_PAT=ul_pat_xxx  (Mac/Linux)
-    python fetch_media_drive.py <ROOT_FOLDER_ID> [output.json] [--extra dateTimeOriginal,takenAt]
+    python fetch_media_drive.py <FOLDER_ID> [<FOLDER_ID> ...] [output.json] [--extra dateTimeOriginal,takenAt]
+
+Several folder IDs are exported into one file (duplicates are skipped).
 
 Then load the JSON file in the page under "Advanced / offline options".
 """
@@ -83,15 +85,21 @@ def main():
         args = [a for a in args if a not in extra and a != sys.argv[sys.argv.index("--extra") + 1]]
     if not args:
         raise SystemExit(__doc__)
-    root_id = args[0]
-    out = args[1] if len(args) > 1 else f"media-drive-items_{root_id}.json"
+    outs = [a for a in args if a.lower().endswith(".json")]
+    root_ids = list(dict.fromkeys(a for a in args if a not in outs))
+    if not root_ids:
+        raise SystemExit(__doc__)
+    out = outs[0] if outs else f"media-drive-items_{root_ids[0]}{'_and_more' if len(root_ids) > 1 else ''}.json"
     pat = os.environ.get("UNLEASH_PAT") or input("Personal Access Token: ").strip()
     meta = list(dict.fromkeys(META + extra))
 
-    root = gql(f'query GetLibraryItem {{ get(item:{{id:{json.dumps(root_id)}}}) {{ {FIELDS} metadata {{ {" ".join(meta)} }} }} }}', pat)["get"]
-    if not root:
-        raise SystemExit("Root folder not found")
-    items, queue, nf, nfile = [root], [root], 1, 0
+    items, queue, seen, nf, nfile = [], [], set(), 0, 0
+    for root_id in root_ids:
+        root = gql(f'query GetLibraryItem {{ get(item:{{id:{json.dumps(root_id)}}}) {{ {FIELDS} metadata {{ {" ".join(meta)} }} }} }}', pat)["get"]
+        if not root:
+            raise SystemExit(f"Folder {root_id} not found")
+        if root["id"] not in seen:
+            seen.add(root["id"]); items.append(root); queue.append(root); nf += 1
     while queue:
         f = queue.pop(0)
         loc = (f.get("location") or "").replace("#", "/")
@@ -102,6 +110,9 @@ def main():
         except SystemExit:
             kids = list_all(f"{f.get('location') or ''}/{f['id']}", pat, meta)
         for k in kids:
+            if k["id"] in seen:
+                continue
+            seen.add(k["id"])
             items.append(k)
             if is_folder(k):
                 nf += 1
