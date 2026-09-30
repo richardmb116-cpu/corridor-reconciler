@@ -41,6 +41,19 @@
 - A burst with shots in two or more folders is a split. The suggested destination is the folder with
   most of the burst's shots (ties go to the folder with more images overall).
 
+# Folder check
+
+- Asset folder: not an Archive (name matches the Archive pattern) or inside one, not a top folder,
+  and no sub-folders other than Archives. RGB = images whose name does not match the "not RGB"
+  pattern (default `_T\.|_T_`, DJI thermal).
+- Spare shots: RGB images in an Archive, loose in a folder with sub-folders, or in an over-full
+  asset folder. For a short folder, its own Archive's shots always qualify (score -1 + time gap);
+  other spare shots qualify within the time window of the folder's shots (same `deviceId`) and the
+  distance of the nearest one, scored time/window + distance/limit.
+- Pairs are assigned greedily, best score first: each shot at most once, a folder at most what it is
+  short, an over-full folder only down to the expected count. Up to three unassigned alternatives
+  are listed per folder, unticked.
+
 # Media Drive API
 
 GraphQL endpoint `https://mediadrive-api.unleashlive.com/graphql`, `Authorization: Bearer <PAT>`.

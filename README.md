@@ -49,6 +49,25 @@ images, folders emptied by a merge are left in place (and reported), and the run
 With **Skip duplicate copies** (on by default), a file with the same name and capture second in two
 or more folders, such as an archived original, is treated as a copy and left out.
 
+### Check folders
+
+The **Check folders** tab counts the RGB shots in every asset folder (a folder with no sub-folders
+other than Archive folders) and flags any with more or fewer than the expected number (5 by
+default). Thermal files (`_T` in the name) are not counted; the pattern is editable under **Rules**.
+For each short folder it suggests the closest spare shots to refolder, and ticks them:
+
+1. shots in the folder's own **Archive** sub-folder,
+2. loose shots in the feeder, and
+3. extra shots from over-full folders nearby,
+
+taken within 120 s (same drone) and 30 m of the folder's own shots. Each spare shot goes to at most
+one folder, no folder is given more than it needs, and an over-full folder is never taken below the
+expected number. Folders that already have the right count are never touched. Over-full folders
+list which of their shots have a home to go to. Review, then **Move ticked shots** (undoable).
+
+Archive folders are also left out of Re-file and Merge: a pole folder holding an Archive is still a
+pole folder, and a folder that holds sub-folders (a feeder) is never moved as a pole.
+
 ### Scan cache
 
 Each scanned folder's tree is kept in this browser (IndexedDB), so pressing **Scan** again loads it

@@ -147,7 +147,7 @@
   .pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font:400 11px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .pill::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--cool-600)}
   .pill.on::before{background:var(--emerald-600);box-shadow:0 0 0 3px rgba(68,162,73,.25)}
-  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
+  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=check] [data-mode]:not([data-mode~=check]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
   main{grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px 24px 32px;align-items:start;min-height:calc(100vh - 56px)}
   .side{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;padding-bottom:2px}
   @media (max-width:980px){ main{grid-template-columns:minmax(0,1fr);padding:16px} .side{position:static;max-height:none} header{gap:12px;padding:0 16px} header .co{display:none} }
@@ -252,6 +252,16 @@
   .applybar{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px -20px -20px;padding:14px 20px;background:rgba(255,255,255,.97);border-top:1px solid var(--cool-200);border-radius:0 0 var(--radius-lg) var(--radius-lg);backdrop-filter:blur(4px)}
   .pendinfo{font-size:14px}
   .applybar + .status{margin-top:28px}
+  #ckMap{height:clamp(360px,48vh,580px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
+  .dot.ring.cand{border-color:var(--amber-600);border-style:dashed}
+  .fname{font-size:13px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cchips{display:flex;flex-direction:column;gap:4px}
+  .cchip{display:flex;align-items:baseline;gap:8px;margin:0;padding:4px 8px;border:1px solid var(--cool-200);border-radius:var(--radius-md);background:var(--white);font:400 12px/1.3 var(--font-sans);letter-spacing:var(--tracking-body);text-transform:none;color:var(--text-body);cursor:pointer}
+  .cchip.on{border-color:var(--amber-600);background:var(--amber-50)}
+  .cchip input{margin:0;align-self:center}
+  .cchip .mono{font-size:12px}
+  .cwhy{color:var(--text-supporting)}
+  #ckTbl tbody tr{cursor:pointer} #ckTbl tbody tr.focus td:first-child{box-shadow:inset 3px 0 0 var(--cobalt-500)}
   #mgMap{height:clamp(380px,52vh,620px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
   .stats.s4{grid-template-columns:repeat(4,minmax(0,1fr))}
   input.numsm{width:72px;padding:6px 8px}
@@ -292,6 +302,7 @@
   <nav class="modetabs" aria-label="Mode">
     <button data-go="refile" class="active">Re-file</button>
     <button data-go="merge">Merge splits</button>
+    <button data-go="check">Check folders</button>
     <button data-go="corridor">Corridor analysis</button>
   </nav>
   <span class="pill" id="connPill">Not connected</span>
@@ -563,6 +574,77 @@
         <button class="primary" id="btnMgApply" disabled>Merge selected</button>
       </div>
       <div class="status" id="mgApplyStatus" style="display:none"></div>
+    </section>
+
+    <section class="panel review" id="ckPanel" data-mode="check">
+      <div class="card-h">
+        <div>
+          <h2>Check folders</h2>
+          <p>Every asset folder should hold the same number of RGB shots. This flags folders with too few or too many, and suggests the closest spare shots to refolder into each short one: from its own Archive, loose shots in the feeder, or extras from an over-full folder nearby.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="ctl"><span class="ctl-l">RGB images per folder</span><input type="number" id="ckN" value="5" min="1" max="50" class="numsm"></div>
+        <details class="settings">
+          <summary>Rules</summary>
+          <div class="settings-pop">
+            <label for="ckIgnore">Not RGB: file names matching</label>
+            <input type="text" id="ckIgnore" value="_T\.|_T_" class="mono">
+            <div class="hint">A regular expression. The default leaves out DJI thermal files (<span class="mono">…_T.JPG</span>). Clear it to count every image.</div>
+            <label for="ckArch">Archive folders: names containing</label>
+            <input type="text" id="ckArch" value="archive">
+            <div class="hint">Archive folders are never checked themselves; their images are the first place to look for a short folder's missing shots.</div>
+            <div class="row">
+              <div><label for="ckGap">Candidates within (s)</label><input type="number" id="ckGap" value="120" min="5" step="5"></div>
+              <div><label for="ckDist">and (m)</label><input type="number" id="ckDist" value="30" min="1" step="5"></div>
+            </div>
+            <div class="hint">A spare shot is a candidate when it was taken within this time of the folder's own shots (same drone) and this distance of the nearest one. Shots in the folder's own Archive always qualify.</div>
+          </div>
+        </details>
+        <span class="spacer"></span>
+        <button class="primary" id="btnCkRun" disabled>Check folders</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="ckStF">–</div><div class="l">Folders checked</div></div>
+        <div class="stat"><div class="v" id="ckStOk">–</div><div class="l">Complete</div></div>
+        <div class="stat bad"><div class="v" id="ckStShort">–</div><div class="l">Too few</div></div>
+        <div class="stat bad"><div class="v" id="ckStOver">–</div><div class="l">Too many</div></div>
+        <div class="stat pend"><div class="v" id="ckStMv">–</div><div class="l">Moves ticked</div></div>
+      </div>
+      <div class="status quiet" id="ckStatus">Scan Media Drive or load demo data first.</div>
+      <div class="mapwrap">
+        <div id="ckMap"></div>
+        <div class="mapempty" id="ckEmpty">
+          <div class="me-t">No images yet</div>
+          <div class="hint" style="margin:0">Connect and scan your folders, or try it with demo data.</div>
+          <button id="btnDemo4">Load demo data</button>
+        </div>
+      </div>
+      <div class="legend keys">
+        <span><span class="dot" style="background:#c9cbd1"></span>Other images</span>
+        <span><span class="dot ring bad"></span>Flagged folder's shots</span>
+        <span><span class="dot ring cand"></span>Suggested shot (line to where it goes)</span>
+        <span class="kbd-hint">Click a row to zoom to that folder</span>
+      </div>
+      <div class="tblhead">
+        <div class="tabs" id="ckViewTabs">
+          <button class="tab active" data-view="short">Too few <span id="ckCntShort"></span></button>
+          <button class="tab" data-view="over">Too many <span id="ckCntOver"></span></button>
+          <button class="tab" data-view="all">All flagged <span id="ckCntAll"></span></button>
+        </div>
+        <span class="spacer"></span>
+        <button class="sm" id="btnCkTickAll" disabled>Tick all suggestions</button>
+        <button class="sm" id="btnCkTickNone" disabled>Untick all</button>
+      </div>
+      <div class="tablewrap"><table id="ckTbl"><thead><tr><th>Folder</th><th>RGB</th><th>Closest shots to refolder</th></tr></thead><tbody><tr><td colspan="3" class="empty">Press <b>Check folders</b> after scanning.</td></tr></tbody></table></div>
+      <div class="applybar">
+        <div id="ckPendInfo" class="pendinfo">No moves ticked.</div>
+        <span class="spacer"></span>
+        <button class="link" id="btnCkCsv" disabled>Export CSV</button>
+        <button id="btnCkUndo" disabled>Undo last run</button>
+        <button class="primary" id="btnCkApply" disabled>Move ticked shots</button>
+      </div>
+      <div class="status" id="ckApplyStatus" style="display:none"></div>
     </section>
 
     <section class="panel" data-mode="corridor">
@@ -867,7 +949,7 @@ function ingest(items){
   }
   renderCorridors(); updateAnalyseBtn();
   $('btnSaveJson').disabled = !S.items.length;
-  drawMap(); nbReset(); mgReset();
+  drawMap(); nbReset(); mgReset(); ckReset();
 }
 function folderPath(id){
   const parts=[]; let cur=S.folders.get(id); let guard=0;
@@ -1428,6 +1510,10 @@ $('btnDemo').onclick=()=>{
     for(let k=0;k<6;k++) items.push(mk(`burst${bi}-${k}`,dji(tb+k*7000,800+bi*10+k),k<4?f1:f2,la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,tb+k*7000)); }
   for(let k=0;k<3;k++){ const [la,lo]=along(7.2,0), t=t0+7.2*45000+(k+1)*2000; items.push(mk(`loose${k}`,dji(t,900+k),'fA',la+(Math.random()-0.5)*0.00002,lo+(Math.random()-0.5)*0.00002,t)); } // loose beside a pole's shots
   for(let k=0;k<2;k++){ const [la,lo]=along(30.2,0.00008), t=t0+5*3600000+k*5000; items.push(mk(`lone${k}`,dji(t,950+k),'fA',la,lo,t)); } // loose, nothing else shot then
+  { const shots=id=>items.filter(i=>i.parentId===id && /^img/.test(i.id));
+    items.push(mk('pole-A29-arch','Archive','pole-A29',0,0,t0,'F')); shots('pole-A29').slice(-2).forEach(i=>i.parentId='pole-A29-arch'); // 3 of 5, 2 in its Archive
+    shots('pole-A34').slice(-1).forEach(i=>i.parentId='pole-A35');   // A-035 has 4, A-036 has 6
+    shots('pole-A36').slice(0,1).forEach(i=>i.parentId='fA'); }      // A-037 has 4, one loose in the feeder
   $('rootId').value='root'; S.demo=true; S.loadedRoots=[];
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
   setStatus('scanStatus',`Demo data loaded: ${S.images.length} images in ${S.folders.size} folders. Nothing you do with it is sent to Media Drive.`,'ok');
@@ -1441,7 +1527,8 @@ $('btnDemo').onclick=()=>{
 const NB = { map:null, layer:null, unit:'pole', view:'all', tool:'pan', draw:null, lastDraw:null, byId:new Map(), unitImgs:new Map(), best:new Map(), flags:new Map(), sel:new Set(), pending:new Map(),
   colors:new Map(), hidden:new Set(), last:null, box:null, fitted:false, ran:false, targetTouched:false };
 const nbPole = () => NB.unit==='pole';
-const nbUnitOf = im => nbPole() ? im.parentId : im.id;
+// archive copies stay out of re-filing, and in pole mode a folder that holds sub-folders (a feeder) is never moved as a pole
+const nbUnitOf = im => NB.arch?.has(im.parentId) ? null : nbPole() ? (NB.feeders?.has(im.parentId) ? null : im.parentId) : im.id;
 const nbGroupNow = u => nbPole() ? S.folders.get(u)?.parentId : NB.byId.get(u)?.parentId;
 const nbGroupOf = u => NB.pending.has(u) ? NB.pending.get(u).to : nbGroupNow(u);
 const nbUnitName = u => nbPole() ? (S.folders.get(u)?.name||u) : (NB.byId.get(u)?.name||u);
@@ -1463,6 +1550,7 @@ function tally(arr){ const m=new Map(); for(const v of arr) m.set(v,(m.get(v)||0
 function nbClash(u,to){ if(!nbPole()) return false; const nm=S.folders.get(u)?.name; for(const f of S.folders.values()) if(f.parentId===to && f.id!==u && f.name===nm) return true; return false; }
 
 function nbReset(){
+  NB.arch=archiveSet(); NB.feeders=new Set([...S.folders.values()].filter(f=>!NB.arch.has(f.id)).map(f=>f.parentId));
   NB.byId=new Map(S.images.map(i=>[i.id,i])); NB.unitImgs=new Map();
   for(const im of S.images){ const u=nbUnitOf(im); if(u==null) continue; if(!NB.unitImgs.has(u)) NB.unitImgs.set(u,[]); NB.unitImgs.get(u).push(im); }
   NB.best.clear(); NB.flags.clear(); NB.sel.clear(); NB.pending.clear(); NB.hidden.clear(); NB.colors.clear();
@@ -1891,7 +1979,8 @@ function mgFind(){
     for(const list of byKey.values()) if(list.length>1 && new Set(list.map(i=>i.parentId)).size>1){ dupShots++; list.forEach(i=>skip.add(i.id)); } }
   MG.dupShots=dupShots;
   const buckets=new Map();
-  for(const im of S.images){ if(skip.has(im.id)) continue; const t=nbShotTime(im); if(t==null) continue; const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
+  const archM=archiveSet();
+  for(const im of S.images){ if(skip.has(im.id) || archM.has(im.parentId)) continue; const t=nbShotTime(im); if(t==null) continue; const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
   const bursts=[];
   for(const list of buckets.values()){ list.sort((a,b)=>a[0]-b[0]); let cur=null;
     for(const [t,im] of list){
@@ -1900,7 +1989,7 @@ function mgFind(){
       cur.imgs.push(im); cur.last=t; if(!cur.anchor && im._lat!=null) cur.anchor=im;
     } }
   // Loose = a shot sitting beside sub-folders (in a feeder folder, not in a pole folder).
-  const hasSub=new Set([...S.folders.values()].map(f=>f.parentId)), isLoose=im=>hasSub.has(im.parentId);
+  const arch=archiveSet(), hasSub=new Set([...S.folders.values()].filter(f=>!arch.has(f.id)).map(f=>f.parentId)), isLoose=im=>hasSub.has(im.parentId);
   const norm=id=>String(S.folders.get(id)?.name||'').toLowerCase().replace(/\s*\(\d+\)\s*$/,'').replace(/[\s_-]*copy$/,'').trim();
   // pole-folder shots on a grid, to find the nearest pole folder for loose shots that have none in their burst
   const R=Math.max(60,D*3), grid=new Map(), gk=(x,y)=>x+','+y, P=im=>[Math.floor(im._lng*111320*Math.cos(im._lat*Math.PI/180)/R), Math.floor(im._lat*110574/R)];
@@ -2017,13 +2106,156 @@ $('btnMgUndo').onclick=async()=>{
 };
 
 /* =========================================================
+   Check folders: every asset folder should hold N RGB shots
+   ========================================================= */
+const CK = { map:null, layer:null, rows:[], view:'short', tick:new Map(), focus:null, last:null, ran:false, fitted:false, limit:150 };
+// folders that are archives, or inside one
+function archiveSet(){ let re; try{ re=new RegExp($('ckArch').value.trim()||'archive','i'); }catch{ re=/archive/i; }
+  const out=new Set(); for(const f of S.folders.values()) if(folderAncestors(f.id).some(a=>re.test(S.folders.get(a)?.name||''))) out.add(f.id); return out; }
+function ckIsRgb(im){ const p=$('ckIgnore').value.trim(); if(!p) return true; try{ return !new RegExp(p,'i').test(im.name||''); }catch{ return true; } }
+function ensureCkMap(){
+  if(CK.map || typeof L==='undefined') return;
+  CK.map=L.map('ckMap',{preferCanvas:true,maxZoom:21}).setView([35.2,-119.5],6);
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+  const streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
+  sat.addTo(CK.map); L.control.layers({'Satellite':sat,'Streets':streets},null,{position:'topright'}).addTo(CK.map); L.control.scale({imperial:false}).addTo(CK.map);
+  CK.layer=L.layerGroup().addTo(CK.map);
+}
+function ckReset(){ CK.rows=[]; CK.tick.clear(); CK.focus=null; CK.ran=false; CK.fitted=false;
+  $('btnCkRun').disabled=!S.images.length; $('btnCkUndo').disabled=!CK.last; $('ckApplyStatus').style.display='none';
+  setStatus('ckStatus', S.images.length ? 'Press "Check folders" to count the RGB shots in every asset folder.' : 'Scan Media Drive or load demo data first.');
+  ckRender(); }
+function ckRun(){
+  const N=Math.max(1,+$('ckN').value||5), gap=Math.max(1,+$('ckGap').value||120)*1000, D=Math.max(1,+$('ckDist').value||30);
+  const arch=archiveSet(), kids=new Map(), inF=new Map();
+  for(const f of S.folders.values()){ if(!kids.has(f.parentId)) kids.set(f.parentId,[]); kids.get(f.parentId).push(f); }
+  for(const im of S.images){ if(!ckIsRgb(im)) continue; if(!inF.has(im.parentId)) inF.set(im.parentId,[]); inF.get(im.parentId).push(im); }
+  const realKids=id=>(kids.get(id)||[]).filter(f=>!arch.has(f.id));
+  // asset folders: not an archive, not a top folder, and no sub-folders apart from archives
+  const info=new Map();
+  for(const f of S.folders.values()){ if(f._isRoot || arch.has(f.id) || realKids(f.id).length) continue; const ims=inF.get(f.id)||[]; info.set(f.id,{f, ims, n:ims.length}); }
+  const ownArchOf=im=>{ if(!arch.has(im.parentId)) return null; for(const a of folderAncestors(im.parentId)){ if(info.has(a)) return a; } return null; };
+  // spare shots: in an archive, loose beside sub-folders, or in an over-full asset folder
+  const src=im=> arch.has(im.parentId) ? 'archive' : realKids(im.parentId).length ? 'loose' : (info.get(im.parentId)?.n>N ? 'over' : null);
+  const pool=S.images.filter(im=>ckIsRgb(im) && src(im)).map(im=>({im, t:nbShotTime(im), src:src(im)}));
+  const byT=pool.filter(p=>p.t!=null).sort((a,b)=>a.t-b.t), ts=byT.map(p=>p.t);
+  const lb=x=>{ let lo=0,hi=ts.length; while(lo<hi){ const m=(lo+hi)>>1; if(ts[m]<x) lo=m+1; else hi=m; } return lo; };
+  const pairs=[];
+  for(const x of info.values()){ if(x.n>=N) continue;
+    const seen=new Set();
+    // its own archive first
+    for(const p of pool) if(p.src==='archive' && ownArchOf(p.im)===x.f.id){ seen.add(p.im.id); pairs.push({to:x.f.id, p, score:-1+(p.t&&x.ims.length?Math.min(...x.ims.map(r=>Math.abs((nbShotTime(r)||p.t)-p.t)))/gap:0), dt:null, d:null, own:true}); }
+    if(!x.ims.length) continue; // an empty folder has no shots to compare against
+    const rt=x.ims.map(nbShotTime).filter(t=>t!=null); if(!rt.length) continue;
+    const from=lb(Math.min(...rt)-gap), to=lb(Math.max(...rt)+gap+1);
+    for(let i=from;i<to && i<byT.length;i++){ const p=byT[i]; if(seen.has(p.im.id) || p.im.parentId===x.f.id) continue;
+      if(p.src==='archive' && ownArchOf(p.im) && ownArchOf(p.im)!==x.f.id) continue; // another folder's archive is that folder's business
+      const same=x.ims.filter(r=>!r.deviceId||!p.im.deviceId||r.deviceId===p.im.deviceId); if(!same.length) continue;
+      const dt=Math.min(...same.map(r=>Math.abs((nbShotTime(r)??Infinity)-p.t))); if(!(dt<=gap)) continue;
+      let d=null; if(p.im._lat!=null){ const g=same.filter(r=>r._lat!=null); if(g.length){ d=Math.min(...g.map(r=>mgDist(r,p.im))); if(d>D) continue; } }
+      pairs.push({to:x.f.id, p, score:dt/gap+(d==null?0.5:d/D), dt, d, own:false}); }
+  }
+  // assign each spare shot to its best folder, never giving a folder more than it needs, or taking an over-full folder below N
+  pairs.sort((a,b)=>a.score-b.score);
+  const need=new Map([...info.values()].filter(x=>x.n<N).map(x=>[x.f.id,N-x.n])), give=new Map([...info.values()].filter(x=>x.n>N).map(x=>[x.f.id,x.n-N]));
+  const assigned=new Map(), alts=new Map();
+  for(const pr of pairs){ const id=pr.p.im.id;
+    if(assigned.has(id) || !(need.get(pr.to)>0) || (pr.p.src==='over' && !(give.get(pr.p.im.parentId)>0))){ if(!alts.has(pr.to)) alts.set(pr.to,[]); if(alts.get(pr.to).length<3 && assigned.get(id)?.to!==pr.to) alts.get(pr.to).push(pr); continue; }
+    assigned.set(id,pr); need.set(pr.to,need.get(pr.to)-1); if(pr.p.src==='over') give.set(pr.p.im.parentId,give.get(pr.p.im.parentId)-1); }
+  CK.tick=new Map([...assigned].map(([id,pr])=>[id,pr]));
+  CK.pairsByFolder=new Map(); for(const pr of assigned.values()){ if(!CK.pairsByFolder.has(pr.to)) CK.pairsByFolder.set(pr.to,[]); CK.pairsByFolder.get(pr.to).push(pr); }
+  CK.alts=alts; CK.N=N;
+  CK.rows=[...info.values()].filter(x=>x.n!==N).map(x=>({id:x.f.id, n:x.n, kind:x.n<N?'short':'over', ims:x.ims,
+    out: x.n>N ? [...assigned.values()].filter(pr=>pr.p.im.parentId===x.f.id) : []}))
+    .sort((a,b)=>folderPath(a.id).localeCompare(folderPath(b.id)));
+  CK.checked=info.size; CK.ok=[...info.values()].filter(x=>x.n===N).length; CK.ran=true; CK.focus=null;
+  const nS=CK.rows.filter(r=>r.kind==='short').length, nO=CK.rows.length-nS, filled=[...CK.pairsByFolder.keys()].filter(id=>(CK.pairsByFolder.get(id)||[]).length>=N-info.get(id).n).length;
+  if(!CK.rows.some(r=>r.kind===CK.view) && CK.view!=='all') CK.view = nS?'short':'over';
+  document.querySelectorAll('#ckViewTabs .tab').forEach(b=>b.classList.toggle('active',b.dataset.view===CK.view));
+  setStatus('ckStatus', CK.rows.length
+    ? `${info.size.toLocaleString()} asset folders checked: ${CK.ok.toLocaleString()} have exactly ${N} RGB shots, ${nS.toLocaleString()} have too few and ${nO.toLocaleString()} too many. Spare shots were found to complete ${filled.toLocaleString()} of the short folders; each suggestion is ticked. Review them, then press Move ticked shots.`
+    : `All ${info.size.toLocaleString()} asset folders have exactly ${N} RGB shots.`, CK.rows.length?'':'ok');
+  ckRender();
+  if(CK.map && $('ckMap').offsetWidth){ const pts=CK.rows.flatMap(r=>r.ims).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length) CK.map.fitBounds(pts,{padding:[30,30],maxZoom:18}); }
+}
+const CK_SRC={archive:'in its Archive', loose:'loose in', over:'extra in'};
+function ckWhy(pr){ const im=pr.p.im; const where = pr.own ? 'in this folder\'s Archive' : pr.p.src==='archive' ? `in ${mgShort(im.parentId)}` : `${CK_SRC[pr.p.src]} ${mgShort(im.parentId)}`;
+  const near=[pr.dt!=null?`${Math.round(pr.dt/1000)} s`:null, pr.d!=null?`${Math.round(pr.d)} m`:null].filter(Boolean).join(', ');
+  return where+(near?` · ${near} from its shots`:''); }
+const ckVisible = () => CK.view==='all' ? CK.rows : CK.rows.filter(r=>r.kind===CK.view);
+function ckRender(){
+  ensureCkMap(); const vis=ckVisible();
+  if(CK.map){ CK.layer.clearLayers(); const flagged=new Set(vis.flatMap(r=>r.ims.map(i=>i.id))), cand=new Map(); const bounds=[];
+    for(const pr of CK.tick.values()) if(vis.some(r=>r.id===pr.to||r.id===pr.p.im.parentId)) cand.set(pr.p.im.id,pr);
+    for(const im of S.images){ if(im._lat==null) continue; bounds.push([im._lat,im._lng]); if(flagged.has(im.id)||cand.has(im.id)) continue;
+      L.circleMarker([im._lat,im._lng],{radius:3,color:'#ffffff',weight:.5,fillColor:'#c9cbd1',fillOpacity:.8,interactive:false}).addTo(CK.layer); }
+    for(const r of vis){ const foc=CK.focus===r.id; for(const im of r.ims){ if(im._lat==null) continue;
+      L.circleMarker([im._lat,im._lng],{radius:foc?8:6,color:foc?'#3182ed':'#e51728',weight:3,fillColor:nbColor(r.id),fillOpacity:.95})
+        .bindTooltip(()=>`<b>${esc(im.name)}</b><br>${esc(folderPath(r.id))}<br>${r.n} of ${CK.N} RGB shots`,{direction:'top',offset:[0,-6]}).on('click',()=>{ CK.focus=r.id; ckRender(); }).addTo(CK.layer); } }
+    for(const pr of cand.values()){ const im=pr.p.im; if(im._lat==null) continue; const tgt=(S.images.filter(i=>i.parentId===pr.to&&i._lat!=null&&ckIsRgb(i))[0]);
+      if(tgt) L.polyline([[im._lat,im._lng],[tgt._lat,tgt._lng]],{color:'#d27b30',weight:2,dashArray:'4 4',interactive:false}).addTo(CK.layer);
+      L.circleMarker([im._lat,im._lng],{radius:7,color:'#d27b30',weight:3,dashArray:'3 2',fillColor:nbColor(im.parentId),fillOpacity:.95})
+        .bindTooltip(()=>`<b>${esc(im.name)}</b><br>Now: ${esc(folderPath(im.parentId))}<br>Move into: ${esc(folderPath(pr.to))}`,{direction:'top',offset:[0,-6]}).addTo(CK.layer); }
+    if(bounds.length && !CK.fitted && $('ckMap').offsetWidth){ CK.map.invalidateSize(); CK.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); CK.fitted=true; } }
+  const chip=(pr,on,label)=>`<label class="cchip${on?' on':''}"><input type="checkbox" data-img="${esc(pr.p.im.id)}" data-to="${esc(pr.to)}" ${on?'checked':''}><span class="mono">${esc(pr.p.im.name)}</span><span class="cwhy">${esc(label)}</span></label>`;
+  const tb=$('ckTbl').querySelector('tbody');
+  tb.innerHTML = vis.length ? vis.slice(0,CK.limit).map(r=>{
+    let body;
+    if(r.kind==='short'){ const mine=CK.pairsByFolder?.get(r.id)||[], alt=(CK.alts?.get(r.id)||[]).filter(a=>!mine.some(m=>m.p.im.id===a.p.im.id));
+      const need=CK.N-r.n;
+      body = (mine.length||alt.length) ? `<div class="cchips">${mine.map(pr=>chip(pr,CK.tick.get(pr.p.im.id)?.to===r.id,ckWhy(pr))).join('')}${alt.map(pr=>chip(pr,CK.tick.get(pr.p.im.id)?.to===r.id,'alternative · '+ckWhy(pr))).join('')}</div>`
+        + (mine.length<need?`<div class="hint" style="margin:4px 0 0">${need-mine.length} more needed: no other spare shot was taken close enough.</div>`:'')
+        : `<div class="hint" style="margin:0">No spare shot close enough${r.n?'':' (the folder is empty, and has no Archive)'}. ${need} needed.</div>`; }
+    else { body = r.out.length ? `<div class="cchips">${r.out.map(pr=>chip(pr,CK.tick.get(pr.p.im.id)?.to===pr.to,`goes to ${mgShort(pr.to)} · ${pr.dt!=null?Math.round(pr.dt/1000)+' s':''}${pr.d!=null?', '+Math.round(pr.d)+' m':''}`)).join('')}</div>` : '';
+      body += r.out.length<r.n-CK.N ? `<div class="hint" style="margin:4px 0 0">${r.n-CK.N-r.out.length} extra shot(s) with no short folder nearby to go to.</div>` : ''; }
+    return `<tr data-f="${esc(r.id)}" class="${CK.focus===r.id?'focus':''}"><td><div class="fname" title="${esc(folderPath(r.id))}">${esc(mgShort(r.id))}</div></td>
+      <td><span class="badge ${r.kind==='short'?'b-bad':'b-warn'}">${r.n} / ${CK.N}</span></td><td>${body}</td></tr>`; }).join('')
+    : `<tr><td colspan="3" class="empty">${CK.ran?(CK.rows.length?'Nothing in this list. Try another tab.':'Every asset folder is complete.'):'Press <b>Check folders</b> after scanning.'}</td></tr>`;
+  if(vis.length>CK.limit) tb.insertAdjacentHTML('beforeend',`<tr><td colspan="3" class="empty"><button class="sm" data-act="more">Show ${Math.min(150,vis.length-CK.limit)} more</button> <span class="hint">(${(vis.length-CK.limit).toLocaleString()} not shown)</span></td></tr>`);
+  const nS=CK.rows.filter(r=>r.kind==='short').length, f=n=>S.images.length&&CK.ran?n.toLocaleString():'–';
+  $('ckCntShort').textContent=nS||''; $('ckCntOver').textContent=(CK.rows.length-nS)||''; $('ckCntAll').textContent=CK.rows.length||'';
+  $('ckStF').textContent=f(CK.checked||0); $('ckStOk').textContent=f(CK.ok||0); $('ckStShort').textContent=f(nS); $('ckStOver').textContent=f(CK.rows.length-nS); $('ckStMv').textContent=f(CK.tick.size);
+  $('ckEmpty').style.display=S.images.length?'none':'flex';
+  const moves=ckMoves(); $('ckPendInfo').textContent = moves.length ? `${moves.length.toLocaleString()} shot(s) ticked to move into ${new Set(moves.map(m=>m.to)).size.toLocaleString()} folder(s).` : 'No moves ticked.';
+  $('btnCkApply').disabled=!moves.length; $('btnCkCsv').disabled=!moves.length; $('btnCkTickAll').disabled=!CK.rows.length; $('btnCkTickNone').disabled=!CK.tick.size;
+}
+const ckMoves = () => [...CK.tick.values()].filter(pr=>pr.p.im.parentId!==pr.to).map(pr=>({id:pr.p.im.id, from:pr.p.im.parentId, to:pr.to}));
+$('ckTbl').querySelector('tbody').addEventListener('change', e=>{ const img=e.target.dataset.img; if(!img) return;
+  const pr=[...(CK.pairsByFolder?.get(e.target.dataset.to)||[]), ...(CK.alts?.get(e.target.dataset.to)||[])].find(x=>x.p.im.id===img);
+  if(e.target.checked && pr) CK.tick.set(img,pr); else if(CK.tick.get(img)?.to===e.target.dataset.to) CK.tick.delete(img);
+  ckRender(); });
+$('ckTbl').querySelector('tbody').addEventListener('click', e=>{ if(e.target.dataset.act==='more'){ CK.limit+=150; ckRender(); return; }
+  if(e.target.closest('label,input')) return; const tr=e.target.closest('tr[data-f]'); if(!tr) return; CK.focus=tr.dataset.f;
+  const r=CK.rows.find(x=>x.id===CK.focus); const pts=[...r.ims, ...[...CK.tick.values()].filter(pr=>pr.to===r.id).map(pr=>pr.p.im)].filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]);
+  if(pts.length && CK.map) CK.map.fitBounds(pts,{padding:[80,80],maxZoom:20}); ckRender(); });
+document.querySelectorAll('#ckViewTabs .tab').forEach(b=>b.onclick=()=>{ CK.view=b.dataset.view; CK.limit=150; document.querySelectorAll('#ckViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); ckRender(); });
+$('btnCkRun').onclick=ckRun; $('btnDemo4').onclick=()=>$('btnDemo').click();
+$('btnCkTickAll').onclick=()=>{ for(const [,list] of CK.pairsByFolder||[]) for(const pr of list) CK.tick.set(pr.p.im.id,pr); ckRender(); };
+$('btnCkTickNone').onclick=()=>{ CK.tick.clear(); ckRender(); };
+$('btnCkCsv').onclick=()=>{ const rows=ckMoves().map(m=>{ const im=S.images.find(i=>i.id===m.id), pr=CK.tick.get(m.id); return {id:m.id, name:im?.name, current_folder:folderPath(m.from), current_folder_id:m.from, move_into:folderPath(m.to), move_into_id:m.to, reason:ckWhy(pr), lat:im?._lat??'', lng:im?._lng??''}; });
+  download(`folder-check-moves_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
+async function ckRunMoves(moves, verb){
+  const btns=['btnCkApply','btnCkUndo','btnCkRun']; btns.forEach(b=>$(b).disabled=true); $('ckApplyStatus').style.display='block'; const done=[];
+  try{ await nbRunMoves(moves,'image',done); setStatus('ckApplyStatus',`${verb} ${done.length} shot(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}.`,'ok'); }
+  catch(e){ let msg=e.message||String(e); if(/Failed to fetch|NetworkError/i.test(msg)) msg+='. The browser may be blocked by CORS: export the CSV instead.'; setStatus('ckApplyStatus',`Stopped after ${done.length} of ${moves.length}: ${msg}`,'err'); }
+  finally{ btns.forEach(b=>$(b).disabled=false); mgAfterMove(); }
+  return done; }
+$('btnCkApply').onclick=async()=>{ const moves=ckMoves(); if(!moves.length) return;
+  if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in Connect to move shots here, or export the CSV.'); return; }
+  if(!confirm(`Move ${moves.length} shot(s) into ${new Set(moves.map(m=>m.to)).size} folder(s)?${S.demo?' (demo: nothing is sent)':''}\n\nYou can undo this afterwards.`)) return;
+  const done=await ckRunMoves(moves,'Moved'); if(done.length) CK.last=done; $('btnCkUndo').disabled=!CK.last; ckRun(); };
+$('btnCkUndo').onclick=async()=>{ if(!CK.last) return; const moves=CK.last.map(m=>({id:m.id,from:m.to,to:m.from}));
+  if(!confirm(`Put ${moves.length} shot(s) back where they were?`)) return;
+  const done=await ckRunMoves(moves,'Put back'); const back=new Set(done.map(d=>d.id)); CK.last=CK.last.filter(m=>!back.has(m.id)); if(!CK.last.length) CK.last=null; $('btnCkUndo').disabled=!CK.last; ckRun(); };
+
+/* =========================================================
    UI shell: mode switch, stats, empty state, table views
    ========================================================= */
 function setMode(m){
   document.body.dataset.mode=m;
   document.querySelectorAll('.modetabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===m));
   try{ localStorage.setItem('mdr.mode',m); }catch{}
-  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
+  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); CK.map?.invalidateSize(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='check' && CK.map && !CK.fitted) ckRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
 }
 document.querySelectorAll('.modetabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.go));
 function nbStats(){
@@ -2044,13 +2276,13 @@ document.querySelectorAll('#nbViewTabs .tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nbViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); NB.view=b.dataset.view; nbTable(); });
 $('btnDemo2').onclick=()=>$('btnDemo').click();
 document.addEventListener('click',e=>{ const d=document.querySelector('details.settings[open]'); if(d && !d.contains(e.target)) d.open=false; });
-{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['refile','merge','corridor'].includes(m)?m:'refile'); }
+{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['refile','merge','check','corridor'].includes(m)?m:'refile'); }
 
 /* =========================================================
    Wire up
    ========================================================= */
 $('btnScan').onclick=()=>scan(); $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
-ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); nbStats(); mgRender(); scRenderList();
+ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); ensureCkMap(); nbStats(); mgRender(); ckRender(); scRenderList();
 </script>
 </body>
 </html>
