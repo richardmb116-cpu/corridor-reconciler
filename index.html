@@ -147,7 +147,7 @@
   .pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font:400 11px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .pill::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--cool-600)}
   .pill.on::before{background:var(--emerald-600);box-shadow:0 0 0 3px rgba(68,162,73,.25)}
-  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=check] [data-mode]:not([data-mode~=check]), body[data-mode=organise] [data-mode]:not([data-mode~=organise]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
+  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=check] [data-mode]:not([data-mode~=check]), body[data-mode=organise] [data-mode]:not([data-mode~=organise]), body[data-mode=split] [data-mode]:not([data-mode~=split]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
   main{grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px 24px 32px;align-items:start;min-height:calc(100vh - 56px)}
   .side{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;padding-bottom:2px}
   @media (max-width:980px){ main{grid-template-columns:minmax(0,1fr);padding:16px} .side{position:static;max-height:none} header{gap:12px;padding:0 16px} header .co{display:none} }
@@ -273,7 +273,7 @@
   .cchip .mono{font-size:12px}
   .cwhy{color:var(--text-supporting)}
   #ckTbl tbody tr{cursor:pointer} #ckTbl tbody tr.focus td:first-child{box-shadow:inset 3px 0 0 var(--cobalt-500)}
-  #mgMap{height:clamp(380px,52vh,620px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
+  #mgMap,#spMap{height:clamp(380px,52vh,620px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
   .stats.s4{grid-template-columns:repeat(4,minmax(0,1fr))}
   input.numsm{width:72px;padding:6px 8px}
   .fchips{display:flex;flex-wrap:wrap;gap:4px}
@@ -314,6 +314,7 @@
     <button data-go="organise">Organise</button>
     <button data-go="refile" class="active">Re-file</button>
     <button data-go="merge">Merge splits</button>
+    <button data-go="split">Split folders</button>
     <button data-go="check">Check folders</button>
     <button data-go="corridor">Corridor analysis</button>
   </nav>
@@ -588,6 +589,70 @@
       <div class="status" id="mgApplyStatus" style="display:none"></div>
     </section>
 
+    <section class="panel review" id="spPanel" data-mode="split">
+      <div class="card-h">
+        <div>
+          <h2>Split folders into assets</h2>
+          <p>A folder (and its sub-folders) holding the shots of several assets, all in one pile. This groups the shots into bursts, one per asset, and copies each into its own new folder, numbered UL-1, UL-2 and so on. The original folder is never changed.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="ctl"><span class="ctl-l">Folder to split</span><select id="spSrc" class="sm" aria-label="Folder to split"></select></div>
+        <div class="ctl"><span class="ctl-l">Shots are</span><select id="spMode" class="sm" aria-label="Copy or move" autocomplete="off"><option value="copy">Copied (original untouched; needs a copy call)</option><option value="move">Moved (original loses them)</option></select></div>
+        <div class="ctl"><span class="ctl-l">Create new folders in</span><select id="spDest" class="sm" aria-label="Destination parent folder"><option value="">Same place as the folder</option><option value="inside">Inside the folder</option></select></div>
+      </div>
+      <div class="controls">
+        <div class="ctl"><span class="ctl-l">Shots within</span><input type="number" id="spGap" value="60" min="5" step="5" class="numsm" aria-label="Seconds between shots"><span class="ctl-l">seconds and</span><input type="number" id="spDist" value="20" min="1" step="5" class="numsm" aria-label="Metres from the first shot"><span class="ctl-l">metres</span></div>
+        <label class="inl chk"><input type="checkbox" id="spDev" checked> Same drone only</label>
+        <label class="inl chk" title="A file with the same name and capture time in two folders is a copy (for example an archived original); only one is used"><input type="checkbox" id="spDup" checked> Skip duplicate copies</label>
+        <div class="ctl"><span class="ctl-l">Number from</span><input type="number" id="spStart" value="1" min="1" step="1" class="numsm" aria-label="First folder number"></div>
+        <span class="spacer"></span>
+        <button class="primary" id="btnSpFind" disabled>Find shots to split</button>
+      </div>
+      <div class="stats s4">
+        <div class="stat"><div class="v" id="spStG">–</div><div class="l">New folders</div></div>
+        <div class="stat"><div class="v" id="spStN">–</div><div class="l">Shots in them</div></div>
+        <div class="stat sel"><div class="v" id="spStS">–</div><div class="l">Selected</div></div>
+        <div class="stat pend"><div class="v" id="spStI">–</div><div class="l">Shots to copy</div></div>
+      </div>
+      <div class="status quiet" id="spStatus">Scan Media Drive or load demo data first.</div>
+      <div class="mapwrap">
+        <div id="spMap"></div>
+        <div class="mapempty" id="spEmpty">
+          <div class="me-t">No images yet</div>
+          <div class="hint" style="margin:0">Connect and scan your folders, or try it with demo data.</div>
+          <button id="btnDemo4">Load demo data</button>
+        </div>
+      </div>
+      <div class="legend keys">
+        <span><span class="dot" style="background:#c9cbd1"></span>Other images</span>
+        <span><span class="dot ring bad"></span>Shots to split (one colour per new folder)</span>
+        <span><span class="dot ring sel"></span>Selected</span>
+        <span class="kbd-hint">Click a dot or a row to select its folder</span>
+      </div>
+      <div class="tblhead">
+        <div class="tabs"><button class="tab active" type="button">New folders <span id="spCount"></span></button></div>
+        <span class="spacer"></span>
+        <button class="sm" id="btnSpAll" disabled>Select all</button>
+        <button class="sm" id="btnSpNone" disabled>Select none</button>
+      </div>
+      <div class="tablewrap"><table id="spTbl"><thead><tr><th style="width:28px"></th><th>New folder</th><th>Captured</th><th>Shots</th><th>Copied from</th></tr></thead><tbody><tr><td colspan="5" class="empty">Press <b>Find shots to split</b> after scanning.</td></tr></tbody></table></div>
+      <details class="adv" style="margin:8px 0"><summary>API mutations (create folder, copy)</summary>
+        <div style="padding:0 20px 14px">
+          <div class="hint">Used by Split selected. <code>{{name}}</code>, <code>{{parentId}}</code>, <code>{{ids}}</code> (comma-separated <code>{id: "..."}</code>) and <code>{{to}}</code> are filled in. The create mutation must return the new folder's <code>id</code>; the copy mutation must return the new items' <code>id</code>s in order. Adjust these if your Media Drive schema differs.</div>
+          <label class="hint">Create folder<textarea id="spMutCreate" autocomplete="off" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CreateFolder { saveFolder(name: {{name}}, parentId: {{parentId}}) { id parentId location name type } }</textarea></label>
+          <label class="hint">Copy items<textarea id="spMutCopy" autocomplete="off" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CopyItems { copy(copyItems: [{{ids}}], to: {id: {{to}}}) { id parentId location name } }</textarea></label>
+        </div>
+      </details>
+      <div class="applybar">
+        <div id="spPendInfo" class="pendinfo">Nothing selected.</div>
+        <span class="spacer"></span>
+        <button class="link" id="btnSpCsv" disabled>Export CSV</button>
+        <button class="primary" id="btnSpApply" disabled>Split selected</button>
+      </div>
+      <div class="status" id="spApplyStatus" style="display:none"></div>
+    </section>
+
     <section class="panel review" id="ckPanel" data-mode="check">
       <div class="card-h">
         <div>
@@ -772,6 +837,10 @@
           <div><label>Site map JSON (*.sitemap.json)</label><input type="file" id="smFile" accept=".json,application/json"></div>
           <div><label>&nbsp;</label><button id="btnSmSave" disabled>Save georeferenced site map (JSON)</button></div>
         </div>
+        <div class="row" style="margin-top:8px">
+          <div><label>Reference overlays (KML, KMZ or GeoJSON), shown on the map above</label><input type="file" id="ovFile" accept=".kml,.kmz,.geojson,.json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" multiple></div>
+        </div>
+        <div id="ovList" class="hint">No overlays loaded. They are drawn on the map for reference only and are not used as corridors.</div>
         <div class="status" id="smStatus">No site map loaded.</div>
         <div class="smgrid" style="margin-top:8px">
           <div>
@@ -896,6 +965,7 @@ function isFolder(it){
   const t = String(it.type||'').toUpperCase();
   if (['F','D','FOLDER','DIR','DIRECTORY'].includes(t)) return true;
   if (t==='I'||t==='V'||t==='IMAGE'||t==='VIDEO') return false;
+  if (/^IR_/.test(t) || /^(image|video)\//i.test(it.mimeType||'') || it.s3Path) return false; // thermal (IR_I) and any file with a stored object are files, whatever their child count
   if (it.metadata && it.metadata.childItemsNumber!=null) return true;
   return !it.mimeType && !it.s3Path;
 }
@@ -974,6 +1044,7 @@ $('btnCacheClear').onclick=async()=>{ if(!confirm('Remove every cached folder fr
 $('btnScanFresh').onclick=()=>scan({fresh:'all'});
 ['rootId','endpoint'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(SC.t); SC.t=setTimeout(scRenderList,250); }));
 
+async function listSubfolderIds(parentId){ const d=await gql(`query sub { listSubfolders(parentId: ${JSON.stringify(parentId)}) { items { id } } }`); return (d.listSubfolders?.items||[]).map(x=>x.id); }
 async function scanRoot(id, seen, items, counts){ // walk one folder tree from Media Drive
   const root = await getItem(id);
   if(!root) throw new Error(`Folder ${id} not found (check the ID and that the token has access to this team).`);
@@ -983,8 +1054,15 @@ async function scanRoot(id, seen, items, counts){ // walk one folder tree from M
     const f=queue.shift();
     setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … folders: ${counts.folders}, files: ${counts.files}`);
     let kids;
-    try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … ${n} items so far (folders: ${counts.folders}, files: ${counts.files})`)); }
-    catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+    // Archive and Results folders keep a prefixed location ("archive#team/..."): list with the location as stored, and only
+    // try the "#"-to-"/" form when that finds nothing.
+    const rawLoc=(f.location?`${f.location}/`:'')+f.id, altLoc=childLocation(f), onPage=n=>setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … ${n} items so far (folders: ${counts.folders}, files: ${counts.files})`);
+    try{ kids = await listAll(rawLoc, onPage); if(!kids.length && altLoc!==rawLoc) kids = await listAll(altLoc, onPage); }
+    catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(altLoc); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+    // sub-folders that a location listing does not return (Archive, Results): ask for them by parent
+    try{ const have=new Set(kids.map(k=>k.id)), hidden=await listSubfolderIds(f.id);
+      for(const sid of hidden){ if(have.has(sid)||seen.has(sid)) continue; const it=await getItem(sid); if(it) kids.push(it); } }
+    catch(e){ if(/Cancelled/.test(e.message)) throw e; }
     for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); sub.push(k); if(isFolder(k)){ counts.folders++; queue.push(k); } else counts.files++; }
   }
   return sub;
@@ -1011,7 +1089,7 @@ async function scan(opts={}){
     const tops=items.filter(i=>i._isRoot).length, oldest=fromCache.length?Math.min(...fromCache.map(r=>r.scannedAt)):null;
     const how = !fromCache.length ? 'Scanned from Media Drive' : !fresh.length ? `Loaded from cache (scanned ${fmtAge(oldest)})` : `${fresh.length} scanned, ${fromCache.length} from cache`;
     const names=loaded.map(L=>L.name).join(', ');
-    setStatus('scanStatus',`${how}: ${names}. ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders.${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
+    setStatus('scanStatus',`${how}: ${names}. ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders, down to ${Math.max(0,...[...S.folders.keys()].map(id=>folderAncestors(id).length))} level(s) deep (the scan follows every sub-folder to the last level).${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
     void tops;
   }catch(e){
     let msg = e.message||String(e);
@@ -1051,7 +1129,7 @@ function ingest(items){
   }
   renderCorridors(); updateAnalyseBtn();
   $('btnSaveJson').disabled = !S.items.length;
-  drawMap(); nbReset(); mgReset(); ckReset(); orReset();
+  drawMap(); nbReset(); mgReset(); spReset(); ckReset(); orReset();
 }
 function folderPath(id){
   const parts=[]; let cur=S.folders.get(id); let guard=0;
@@ -1377,12 +1455,12 @@ function ensureMap(){
   carto.addTo(S.map);
   L.control.layers({'Streets':carto,'Light grey':cartoLight,'Satellite':esriSat,'Topographic':esriTopo},null,{position:'topright'}).addTo(S.map);
   L.control.scale({imperial:false}).addTo(S.map);
-  S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
+  S.layers.ov=L.layerGroup().addTo(S.map); S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
   S.map.on('click', e=>onMapClick(e.latlng));
 }
 function drawMap(){
   ensureMap(); if(!S.map) return; Object.values(S.layers).forEach(l=>l.clearLayers());
-  const bounds=[];
+  const bounds=[]; drawOverlays();
   for(const c of S.corridors){
     c.lines.forEach((line,li)=>{
       const br=c.bridged?.[li]||[];
@@ -1413,6 +1491,64 @@ function onMapClick(latlng){
   const cp=S.sm.controlPoints[S.pendingCP]; cp.lat=+latlng.lat.toFixed(7); cp.lng=+latlng.lng.toFixed(7);
   S.pendingCP=null; $('map').classList.remove('picking'); renderCP(); drawMap(); smDraw();
 }
+
+/* ---- Reference overlays: KML / KMZ / GeoJSON drawn on the corridor map ---- */
+const OV_COLORS=['#2865ca','#d27b30','#8a4fd0','#0f9d8a','#c2185b','#6b7280'];
+S.overlays=[];
+function kmlToGeoJson(doc){
+  const feats=[], num=t=>t.trim().split(/\s+/).filter(Boolean).map(c=>{ const a=c.split(',').map(Number); return [a[0],a[1]]; }).filter(c=>isFinite(c[0])&&isFinite(c[1]));
+  const kids=(el,tag)=>[...el.children].filter(c=>c.localName===tag), first=(el,tag)=>el.getElementsByTagName(tag)[0];
+  const geom=g=>{ switch(g.localName){
+    case 'Point': { const c=num(first(g,'coordinates')?.textContent||''); return c.length?{type:'Point',coordinates:c[0]}:null; }
+    case 'LineString': case 'LinearRing': { const c=num(first(g,'coordinates')?.textContent||''); return c.length>1?{type:'LineString',coordinates:c}:null; }
+    case 'Polygon': { const rings=[...g.getElementsByTagName('coordinates')].map(e=>num(e.textContent)).filter(r=>r.length>2); return rings.length?{type:'Polygon',coordinates:rings}:null; }
+    case 'MultiGeometry': { const gs=[...g.children].map(geom).filter(Boolean); return gs.length?{type:'GeometryCollection',geometries:gs}:null; }
+    default: return null; } };
+  for(const pm of doc.getElementsByTagName('Placemark')){
+    const g=[...pm.children].map(geom).find(Boolean); if(!g) continue;
+    feats.push({type:'Feature',properties:{name:kids(pm,'name')[0]?.textContent?.trim()||'',description:kids(pm,'description')[0]?.textContent?.trim()||''},geometry:g}); }
+  return {type:'FeatureCollection',features:feats};
+}
+async function loadOverlay(file){
+  let gj;
+  if(/\.(kml|kmz)$/i.test(file.name)){
+    let text;
+    if(/\.kmz$/i.test(file.name)){ const zip=await JSZip.loadAsync(file); const e=Object.values(zip.files).find(f=>/\.kml$/i.test(f.name)); if(!e) throw new Error('KMZ contains no .kml file'); text=await e.async('string'); }
+    else text=await file.text();
+    const doc=new DOMParser().parseFromString(text,'application/xml'); if(doc.querySelector('parsererror')) throw new Error('KML is not valid XML');
+    gj=kmlToGeoJson(doc);
+  } else {
+    const d=JSON.parse(await file.text());
+    if(d.kind==='sitemap'){ await loadSiteMap(file); return null; }
+    gj = d.type==='FeatureCollection' ? d : d.type==='Feature' ? {type:'FeatureCollection',features:[d]} : {type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:d}]};
+  }
+  if(!gj.features?.some(f=>f.geometry)) throw new Error('No geometry found');
+  const ov={id:'ov'+Date.now()+Math.random().toString(36).slice(2,6), name:file.name, gj, color:OV_COLORS[S.overlays.length%OV_COLORS.length], on:true};
+  S.overlays.push(ov); return ov;
+}
+function drawOverlays(){
+  if(!S.layers.ov) return;
+  for(const ov of S.overlays){ if(!ov.on) continue;
+    L.geoJSON(ov.gj,{ style:()=>({color:ov.color,weight:2.5,opacity:.9,fillColor:ov.color,fillOpacity:.12}),
+      pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#05081d',weight:1.5,fillColor:ov.color,fillOpacity:1}),
+      onEachFeature:(f,l)=>{ const n=f.properties?.name||f.properties?.Name; l.bindPopup(`<b>${esc(n||ov.name)}</b>${n?`<br><span class="hint">${esc(ov.name)}</span>`:''}${f.properties?.description?`<br>${esc(String(f.properties.description).slice(0,300))}`:''}`); } }).addTo(S.layers.ov); }
+}
+function ovBounds(ov){ try{ return L.geoJSON(ov.gj).getBounds(); }catch{ return null; } }
+function renderOverlays(){
+  const box=$('ovList');
+  box.innerHTML = S.overlays.length ? S.overlays.map(o=>{ const n=o.gj.features.length;
+    return `<div class="ovrow" data-ov="${o.id}" style="display:flex;align-items:center;gap:8px;padding:4px 0"><input type="checkbox" data-act="vis" ${o.on?'checked':''} aria-label="Show ${esc(o.name)}"><span style="width:12px;height:12px;border-radius:2px;background:${o.color};flex:none"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(o.name)} <span class="hint">(${n} feature${n===1?'':'s'})</span></span><button class="sm" data-act="zoom">Zoom</button><button class="sm" data-act="rm">Remove</button></div>`; }).join('')
+    : 'No overlays loaded. They are drawn on the map for reference only and are not used as corridors.';
+}
+$('ovList').addEventListener('click',e=>{ const row=e.target.closest('[data-ov]'); if(!row) return; const ov=S.overlays.find(o=>o.id===row.dataset.ov); if(!ov) return;
+  if(e.target.dataset.act==='rm'){ S.overlays=S.overlays.filter(o=>o!==ov); renderOverlays(); drawMap(); }
+  if(e.target.dataset.act==='zoom'){ const b=ovBounds(ov); if(b?.isValid()&&S.map){ S.map.invalidateSize(); S.map.fitBounds(b,{padding:[20,20]}); } } });
+$('ovList').addEventListener('change',e=>{ const row=e.target.closest('[data-ov]'); if(!row||e.target.dataset.act!=='vis') return; const ov=S.overlays.find(o=>o.id===row.dataset.ov); ov.on=e.target.checked; drawMap(); });
+$('ovFile').onchange=async e=>{ const files=[...e.target.files]; e.target.value=''; const errs=[]; let last=null;
+  for(const f of files){ try{ const ov=await loadOverlay(f); if(ov) last=ov; }catch(err){ errs.push(`${f.name}: ${err.message}`); } }
+  renderOverlays(); drawMap();
+  if(last){ const b=ovBounds(last); if(b?.isValid()&&S.map){ S.map.invalidateSize(); S.map.fitBounds(b,{padding:[20,20]}); } }
+  if(errs.length) $('ovList').insertAdjacentHTML('beforeend',`<div class="status err">${esc(errs.join('\n'))}</div>`); };
 
 /* =========================================================
    Site map: viewer, control points, georeferencing
@@ -2217,6 +2353,131 @@ $('btnMgUndo').onclick=async()=>{
 };
 
 /* =========================================================
+   Split folders: one folder (and its sub-folders) holding several assets -> copy each burst into a new UL-n folder
+   ========================================================= */
+const SP = { map:null, layer:null, groups:[], sel:new Set(), focus:null, ran:false, fitted:false, limit:200, src:null, parent:null };
+function ensureSpMap(){
+  if(SP.map || typeof L==='undefined') return;
+  SP.map=L.map('spMap',{preferCanvas:true,maxZoom:21}).setView([35.2,-119.5],6);
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+  const streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
+  sat.addTo(SP.map); L.control.layers({'Satellite':sat,'Streets':streets},null,{position:'topright'}).addTo(SP.map); L.control.scale({imperial:false}).addTo(SP.map);
+  SP.layer=L.layerGroup().addTo(SP.map);
+}
+function spFillFolders(){
+  const sel=$('spSrc'), prev=sel.value, withImgs=new Set(); for(const im of S.images) for(const a of folderAncestors(im.parentId)) withImgs.add(a);
+  const opts=[...S.folders.values()].filter(f=>withImgs.has(f.id)).map(f=>[f.id,folderPath(f.id)]).sort((a,b)=>a[1].localeCompare(b[1]));
+  sel.innerHTML=opts.map(([id,p])=>`<option value="${esc(id)}">${esc(p)}</option>`).join('')||'<option value="">(no folders)</option>';
+  if(opts.some(o=>o[0]===prev)) sel.value=prev; }
+function spReset(){ SP.groups=[]; SP.sel.clear(); SP.focus=null; SP.ran=false; SP.fitted=false; spFillFolders();
+  $('btnSpFind').disabled=!S.images.length; $('spApplyStatus').style.display='none';
+  setStatus('spStatus', S.images.length ? 'Choose the folder to split, then press "Find shots to split".' : 'Scan Media Drive or load demo data first.');
+  spRender(); }
+function spFind(){
+  const src=$('spSrc').value; if(!src) return;
+  const gap=Math.max(1,+$('spGap').value||60)*1000, D=Math.max(1,+$('spDist').value||20), sameDev=$('spDev').checked, start=Math.max(1,Math.floor(+$('spStart').value||1));
+  let imgs=S.images.filter(im=>folderAncestors(im.parentId).includes(src));
+  const total=imgs.length; let dups=0;
+  if($('spDup').checked){ const seen=new Set(); imgs=imgs.filter(im=>{ const t=nbShotTime(im); if(t==null) return true; const k=String(im.name||'').toLowerCase()+'|'+Math.round(t/1000); if(seen.has(k)){ dups++; return false; } seen.add(k); return true; }); }
+  const buckets=new Map(); let untimed=0;
+  for(const im of imgs){ const t=nbShotTime(im); if(t==null){ untimed++; continue; } const k=sameDev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
+  const bursts=[];
+  for(const list of buckets.values()){ list.sort((a,b)=>a[0]-b[0]); let cur=null;
+    for(const [t,im] of list){
+      const ok = cur && t-cur.last<=gap && !(cur.anchor && im._lat!=null && mgDist(cur.anchor,im)>D);
+      if(!ok){ cur={imgs:[],anchor:null,last:t,t0:t}; bursts.push(cur); }
+      cur.imgs.push(im); cur.last=t; if(!cur.anchor && im._lat!=null) cur.anchor=im;
+    } }
+  bursts.sort((a,b)=>a.t0-b.t0);
+  const dest=$('spDest').value, sf=S.folders.get(src); SP.src=src; SP.parent = dest==='inside' ? src : (sf?.parentId ?? src);
+  SP.groups=bursts.map((b,i)=>({id:'s'+i, name:'UL-'+(start+i), imgs:b.imgs, t0:b.t0, t1:b.last, from:tally(b.imgs.map(x=>x.parentId))}));
+  SP.sel.clear(); SP.focus=null; SP.ran=true; SP.fitted=false; SP.limit=200;
+  setStatus('spStatus', (SP.groups.length
+    ? `${imgs.length-untimed} shot(s) from ${folderPath(src)} and its sub-folders form ${SP.groups.length} burst(s), so ${SP.groups.length} new folder(s) UL-${start} to UL-${start+SP.groups.length-1}. Tick the ones to create, then press Split selected. The original folder is not changed.`
+    : `No bursts found in ${folderPath(src)}.`)
+    +(untimed?`\n${untimed.toLocaleString()} shot(s) have no capture time and were left out.`:'')
+    +(dups?`\n${dups.toLocaleString()} duplicate copy(ies) were skipped.`:'')+(total?'':'\nThe folder holds no images.'), SP.groups.length?'':'ok');
+  spRender();
+  if(SP.groups.length && SP.map && $('spMap').offsetWidth){ const pts=SP.groups.flatMap(g=>g.imgs).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length) SP.map.fitBounds(pts,{padding:[30,30],maxZoom:19}); }
+}
+function spRender(){
+  ensureSpMap();
+  const inG=new Map(); SP.groups.forEach(g=>g.imgs.forEach(im=>inG.set(im.id,g)));
+  if(SP.map){ SP.layer.clearLayers(); const bounds=[], top=[];
+    for(const im of S.images){ if(im._lat==null) continue; bounds.push([im._lat,im._lng]); const g=inG.get(im.id);
+      if(!g){ L.circleMarker([im._lat,im._lng],{radius:3,color:'#ffffff',weight:.5,fillColor:'#c9cbd1',fillOpacity:.8,interactive:false}).addTo(SP.layer); continue; }
+      const sel=SP.sel.has(g.id)||SP.focus===g.id, m=L.circleMarker([im._lat,im._lng],{radius:sel?8:6,color:sel?'#3182ed':'#e51728',weight:3,fillColor:nbColor(g.id),fillOpacity:.95});
+      m.bindTooltip(()=>`<b>${esc(im.name)}</b><br>In: ${esc(folderPath(im.parentId))}<br>New folder: <b>${esc(g.name)}</b> (${g.imgs.length} shot(s))`,{direction:'top',offset:[0,-6]});
+      m.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(SP.sel.has(g.id)) SP.sel.delete(g.id); else SP.sel.add(g.id); SP.focus=g.id; spRender(); });
+      top.push([sel,m]); }
+    top.sort((a,b)=>a[0]-b[0]).forEach(([,m])=>m.addTo(SP.layer));
+    if(bounds.length && !SP.fitted && $('spMap').offsetWidth){ SP.map.invalidateSize(); SP.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); SP.fitted=true; } }
+  const tb=$('spTbl').querySelector('tbody');
+  tb.innerHTML = SP.groups.length ? SP.groups.slice(0,SP.limit).map(g=>{ const sel=SP.sel.has(g.id);
+    const chips=g.from.map(([f,n])=>`<span class="fchip" title="${esc(folderPath(f))}"><span class="sw" style="background:${nbColor(f)}"></span>${esc(mgShort(f))} <b>×${n}</b></span>`).join('');
+    const span=(g.t1-g.t0)/1000;
+    return `<tr data-g="${g.id}" class="${sel?'on':''}${SP.focus===g.id?' focus':''}"><td><input type="checkbox" data-act="pick" ${sel?'checked':''} aria-label="Select new folder"></td>
+      <td class="mono"><span class="sw" style="background:${nbColor(g.id)}"></span> <b>${esc(g.name)}</b></td>
+      <td class="mono">${esc(nbTime(g.t0))}<div class="hint" style="margin:2px 0 0">over ${span<1?'<1':Math.round(span)} s</div></td><td>${g.imgs.length}</td><td><div class="fchips">${chips}</div></td></tr>`; }).join('')
+    : `<tr><td colspan="5" class="empty">${SP.ran?'No bursts found. Try a longer time or a larger distance.':'Press <b>Find shots to split</b> after scanning.'}</td></tr>`;
+  if(SP.groups.length>SP.limit) tb.insertAdjacentHTML('beforeend',`<tr><td colspan="5" class="empty"><button class="sm" data-act="more">Show ${Math.min(200,SP.groups.length-SP.limit)} more</button> <span class="hint">(${(SP.groups.length-SP.limit).toLocaleString()} not shown; Select all includes them)</span></td></tr>`);
+  const selG=SP.groups.filter(g=>SP.sel.has(g.id)), n=selG.reduce((s,g)=>s+g.imgs.length,0), f=x=>S.images.length&&SP.ran?x.toLocaleString():'–';
+  $('spStG').textContent=f(SP.groups.length); $('spStN').textContent=f(SP.groups.reduce((s,g)=>s+g.imgs.length,0)); $('spStS').textContent=f(selG.length); $('spStI').textContent=f(n); $('spCount').textContent=SP.groups.length||'';
+  $('spEmpty').style.display=S.images.length?'none':'flex';
+  $('spPendInfo').textContent = selG.length ? `${selG.length.toLocaleString()} new folder(s) selected: ${n.toLocaleString()} shot(s) will be copied into them under ${folderPath(SP.parent)}.` : 'Nothing selected.';
+  $('btnSpApply').disabled=!selG.length; $('btnSpCsv').disabled=!selG.length; $('btnSpAll').disabled=!SP.groups.length; $('btnSpNone').disabled=!SP.sel.size;
+}
+$('spTbl').querySelector('tbody').addEventListener('change', e=>{ const tr=e.target.closest('tr[data-g]'); if(!tr||e.target.dataset.act!=='pick') return; if(e.target.checked) SP.sel.add(tr.dataset.g); else SP.sel.delete(tr.dataset.g); spRender(); });
+$('spTbl').querySelector('tbody').addEventListener('click', e=>{ if(e.target.dataset.act==='more'){ SP.limit+=200; spRender(); return; } const tr=e.target.closest('tr[data-g]'); if(!tr||e.target.closest('input,select')) return;
+  const g=SP.groups.find(x=>x.id===tr.dataset.g); SP.focus=g.id; const pts=g.imgs.filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(pts.length&&SP.map) SP.map.fitBounds(pts,{padding:[80,80],maxZoom:20}); spRender(); });
+$('btnSpFind').onclick=spFind;
+$('btnSpAll').onclick=()=>{ SP.groups.forEach(g=>SP.sel.add(g.id)); spRender(); };
+$('btnSpNone').onclick=()=>{ SP.sel.clear(); spRender(); };
+$('btnDemo4').onclick=()=>$('btnDemo').click();
+$('btnSpCsv').onclick=()=>{ const rows=SP.groups.filter(g=>SP.sel.has(g.id)).flatMap(g=>g.imgs.map(im=>({new_folder:g.name, new_parent:folderPath(SP.parent), new_parent_id:SP.parent, captured:new Date(nbShotTime(im)).toISOString(), id:im.id, name:im.name, current_folder:folderPath(im.parentId), current_folder_id:im.parentId, lat:im._lat??'', lng:im._lng??''})));
+  download(`split-folders_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
+const spFill=(tpl,vars)=>tpl.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]);
+async function spCreateFolder(name,parentId){
+  if(S.demo) return {id:'demo-'+name+'-'+Date.now(), parentId, name, type:'F', location:(S.folders.get(parentId)?.location||'')+'/demo-'+name};
+  const d=await gql(spFill($('spMutCreate').value,{name:JSON.stringify(name),parentId:JSON.stringify(parentId)}));
+  const r=Object.values(d||{})[0]; if(!r?.id) throw new Error('The create-folder mutation did not return an id. Check API mutations.'); return r; }
+async function spCopy(ids,to){
+  if(S.demo) return ids.map(id=>({id:'demo-copy-'+id+'-'+Date.now(), parentId:to}));
+  const d=await gql(spFill($('spMutCopy').value,{ids:ids.map(id=>`{id: ${JSON.stringify(id)}}`).join(', '),to:JSON.stringify(to)}));
+  const r=[].concat(Object.values(d||{})[0]||[]).filter(x=>x&&x.id); if(r.length!==ids.length) throw new Error(`Copy returned ${r.length} item(s) for ${ids.length}. Check API mutations.`); return r; }
+$('btnSpApply').onclick=async()=>{
+  const selG=SP.groups.filter(g=>SP.sel.has(g.id)); if(!selG.length) return;
+  if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in Connect to split here, or export the CSV.'); return; }
+  const n=selG.reduce((s,g)=>s+g.imgs.length,0);
+  const mv0=$('spMode').value==='move'; if(!confirm(`Create ${selG.length} new folder(s) (${selG[0].name}${selG.length>1?' … '+selG[selG.length-1].name:''}) in ${folderPath(SP.parent)} and ${mv0?'MOVE':'copy'} ${n} shot(s) into them?${S.demo?' (demo: nothing is sent)':''}\n\n${mv0?'The shots leave their current folders.':'The original folder is not changed.'} This cannot be undone here.`)) return;
+  const btns=['btnSpApply','btnSpFind','btnSpAll','btnSpNone']; btns.forEach(b=>$(b).disabled=true); $('spApplyStatus').style.display='block';
+  const moveMode=$('spMode').value==='move';
+  if(!S.demo){ // check the API has the calls before creating anything, so no empty folders are left behind
+    try{ const names=[ (/\{\s*(\w+)/.exec($('spMutCreate').value)||[])[1], moveMode?'move':(/\{\s*(\w+)/.exec($('spMutCopy').value)||[])[1] ];
+      const sc=await gql('{ __schema { mutationType { fields { name } } } }'); const have=new Set(sc.__schema.mutationType.fields.map(f=>f.name)), miss=names.filter(n=>!have.has(n));
+      if(miss.length){ setStatus('spApplyStatus',`Nothing was created. The Media Drive API has no "${miss.join('", "')}" mutation${miss.includes(names[1])&&!moveMode?' (it has no copy call: choose "Moved" instead, or edit the copy mutation under API mutations)':''}.`,'err'); btns.forEach(b=>$(b).disabled=false); $('btnSpFind').disabled=!S.images.length; spRender(); return; } }
+    catch(e){ /* introspection blocked: carry on and let the real calls report */ } }
+  let made=0, copied=0; const doneIds=new Set();
+  try{
+    for(const g of selG){
+      setStatus('spApplyStatus',`Creating ${g.name} (${made+1} of ${selG.length}) …`);
+      const folder=await spCreateFolder(g.name,SP.parent); made++;
+      S.folders.set(folder.id,{...folder,type:folder.type||'F'});
+      for(let i=0;i<g.imgs.length;i+=50){ const chunk=g.imgs.slice(i,i+50);
+        setStatus('spApplyStatus',`Copying ${copied+1}–${copied+chunk.length} of ${n} → ${g.name} …`);
+        if(moveMode){ await nbRunMoves(chunk.map(x=>({id:x.id,from:x.parentId,to:folder.id})),'image',[]); }
+        else { const res=await spCopy(chunk.map(x=>x.id),folder.id);
+          res.forEach((r,j)=>{ const o=chunk[j]; S.images.push({...o, id:r.id, parentId:folder.id, location:r.location||o.location, _folderPath:folderPath(folder.id)}); }); }
+        copied+=chunk.length; }
+      doneIds.add(g.id); }
+    setStatus('spApplyStatus',`Created ${made} folder(s) and ${moveMode?'moved':'copied'} ${copied} shot(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}. ${moveMode?'The shots now sit in the new folders.':'The original folder was left alone.'}`,'ok');
+  }catch(e){ let msg=e.message||String(e); if(/Failed to fetch|NetworkError/i.test(msg)) msg+='. The browser may be blocked by CORS: export the CSV instead.';
+    setStatus('spApplyStatus',`Stopped after ${made} folder(s) and ${copied} shot(s): ${msg}\nFolders already created are kept; ones not finished are still in the list.`,'err'); }
+  finally{ SP.groups=SP.groups.filter(g=>!doneIds.has(g.id)); doneIds.forEach(id=>SP.sel.delete(id)); btns.forEach(b=>$(b).disabled=false); $('btnSpFind').disabled=!S.images.length;
+    scSyncLoaded(); spFillFolders(); mgAfterMove(); spRender(); }
+};
+
+/* =========================================================
    Check folders: every asset folder should hold N RGB shots
    ========================================================= */
 const CK = { map:null, layer:null, rows:[], view:'short', tick:new Map(), focus:null, last:null, ran:false, fitted:false, limit:150 };
@@ -2514,6 +2775,7 @@ $('btnOrCsv').onclick=()=>{ const rows=orPlan().flatMap(p=>p.imgs.map(im=>({fold
   download(`organise-plan_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
 // Folder creation is not in the published Media Drive API notes, so try the likely shapes in turn (as unleash-mover does)
 const OR_FOLDER_MUTATIONS = [
+  (n,p) => `mutation { saveFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`, // the API's real call (schema: saveFolder(name, parentId, location))
   (n,p) => `mutation { createFolder(folder: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}}) { id name location parentId } }`,
   (n,p) => `mutation { createFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`,
   (n,p) => `mutation { create(item: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}, type: "F"}) { id name location parentId } }`,
@@ -2524,7 +2786,7 @@ async function orEnsureFolder(name, parent, created){
   let f;
   if(S.demo) f={id:'demo-f'+(++OR.seq), name, parentId:parent, type:'F', location:childLocation(S.folders.get(parent)||{id:parent}), metadata:{childItemsNumber:0}};
   else { const errs=[];
-    for(const build of (OR.mutation?[OR.mutation]:OR_FOLDER_MUTATIONS)){ try{ const d=await gql(build(name,parent)); const c=d.createFolder||d.create||d.addFolder; if(c&&c.id){ OR.mutation=build; f={type:'F', metadata:{childItemsNumber:0}, location:childLocation(S.folders.get(parent)||{id:parent}), ...c, name:c.name||name, parentId:c.parentId||parent}; break; } }catch(e){ errs.push(e.message); } }
+    for(const build of (OR.mutation?[OR.mutation]:OR_FOLDER_MUTATIONS)){ try{ const d=await gql(build(name,parent)); const c=d.saveFolder||d.createFolder||d.create||d.addFolder; if(c&&c.id){ OR.mutation=build; f={type:'F', metadata:{childItemsNumber:0}, location:childLocation(S.folders.get(parent)||{id:parent}), ...c, name:c.name||name, parentId:c.parentId||parent}; break; } }catch(e){ errs.push(e.message); } }
     if(!f) throw new Error(`Could not create the folder "${name}": the Media Drive API's folder-creation call is not documented and none of the likely forms worked (${errs.join(' | ')}). Create the folders by hand and run again: existing folders with the same names are reused.`); }
   S.items.push(f); S.folders.set(f.id,f); created.push(f); return f.id;
 }
@@ -2560,7 +2822,7 @@ function setMode(m){
   document.body.dataset.mode=m;
   document.querySelectorAll('.modetabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===m));
   try{ localStorage.setItem('mdr.mode',m); }catch{}
-  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); CK.map?.invalidateSize(); OR.map?.invalidateSize(); if(m==='organise' && OR.map && !OR.fitted) orRender(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='check' && CK.map && !CK.fitted) ckRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
+  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); CK.map?.invalidateSize(); OR.map?.invalidateSize(); SP.map?.invalidateSize(); if(m==='split' && SP.map && !SP.fitted) spRender(); if(m==='organise' && OR.map && !OR.fitted) orRender(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='check' && CK.map && !CK.fitted) ckRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
 }
 document.querySelectorAll('.modetabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.go));
 function nbStats(){
@@ -2581,7 +2843,7 @@ document.querySelectorAll('#nbViewTabs .tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nbViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); NB.view=b.dataset.view; nbTable(); });
 $('btnDemo2').onclick=()=>$('btnDemo').click();
 document.addEventListener('click',e=>{ const d=document.querySelector('details.settings[open]'); if(d && !d.contains(e.target)) d.open=false; });
-{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['organise','refile','merge','check','corridor'].includes(m)?m:'refile'); }
+{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['organise','refile','merge','split','check','corridor'].includes(m)?m:'refile'); }
 
 /* =========================================================
    Wire up

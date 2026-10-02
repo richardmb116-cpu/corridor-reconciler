@@ -57,6 +57,8 @@ def is_folder(it):
         return True
     if t in ("I", "V", "IMAGE", "VIDEO"):
         return False
+    if t.startswith("IR_") or str(it.get("mimeType") or "").lower().startswith(("image/", "video/")) or it.get("s3Path"):
+        return False  # thermal (IR_I) and any file with a stored object are files, whatever their child count
     md = it.get("metadata") or {}
     if md.get("childItemsNumber") is not None:
         return True
@@ -102,13 +104,30 @@ def main():
             seen.add(root["id"]); items.append(root); queue.append(root); nf += 1
     while queue:
         f = queue.pop(0)
+        # Archive and Results folders keep a prefixed location ("archive#team/..."): list with the location
+        # as stored, and only try the "#"-to-"/" form when that finds nothing.
+        raw = f"{f.get('location') or ''}/{f['id']}" if f.get("location") else f["id"]
         loc = (f.get("location") or "").replace("#", "/")
-        location = f"{loc}/{f['id']}" if loc else f["id"]
+        alt = f"{loc}/{f['id']}" if loc else f["id"]
         print(f"Listing {f.get('name') or f['id']}", file=sys.stderr)
         try:
-            kids = list_all(location, pat, meta)
+            kids = list_all(raw, pat, meta)
+            if not kids and alt != raw:
+                kids = list_all(alt, pat, meta)
         except SystemExit:
-            kids = list_all(f"{f.get('location') or ''}/{f['id']}", pat, meta)
+            kids = list_all(alt, pat, meta)
+        # sub-folders a location listing does not return (Archive, Results): ask for them by parent
+        try:
+            have = {k["id"] for k in kids}
+            sub = gql(f'query sub {{ listSubfolders(parentId: {json.dumps(f["id"])}) {{ items {{ id }} }} }}', pat)["listSubfolders"] or {}
+            for si in sub.get("items") or []:
+                if si["id"] in have or si["id"] in seen:
+                    continue
+                it = gql(f'query GetLibraryItem {{ get(item:{{id:{json.dumps(si["id"])}}}) {{ {FIELDS} metadata {{ {" ".join(meta)} }} }} }}', pat)["get"]
+                if it:
+                    kids.append(it)
+        except SystemExit:
+            pass
         for k in kids:
             if k["id"] in seen:
                 continue
