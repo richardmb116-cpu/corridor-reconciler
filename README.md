@@ -49,6 +49,20 @@ images, folders emptied by a merge are left in place (and reported), and the run
 With **Skip duplicate copies** (on by default), a file with the same name and capture second in two
 or more folders, such as an archived original, is treated as a copy and left out.
 
+### Split folders
+
+The **Split folders** tab takes one folder (and all its sub-folders) that holds the shots of several
+assets and splits it into one new folder per asset. Pick the folder, set *Shots within X seconds and
+Y metres*, *Same drone only* and *Skip duplicate copies* (same logic as Merge splits), then **Find shots
+to split**. Each burst becomes a proposed folder named `UL-1`, `UL-2`, ... in capture-time order (change
+*Number from* to continue an earlier run). Tick the ones you want and press **Split selected**: the
+original folder is left untouched, the new folders are created beside it (or inside it) and the shots are
+*copied* in. Shots without a capture time are left out. Copies are not undoable here; export the CSV first if
+you want a record.
+
+The create-folder and copy GraphQL mutations are editable under *API mutations* because they are not
+used elsewhere in this tool; check them against your Media Drive schema before the first real run.
+
 ### Check folders
 
 The **Check folders** tab counts the RGB shots in every asset folder (a folder with no sub-folders
