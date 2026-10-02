@@ -598,6 +598,7 @@
       </div>
       <div class="controls">
         <div class="ctl"><span class="ctl-l">Folder to split</span><select id="spSrc" class="sm" aria-label="Folder to split"></select></div>
+        <div class="ctl"><span class="ctl-l">Shots are</span><select id="spMode" class="sm" aria-label="Copy or move" autocomplete="off"><option value="copy">Copied (original untouched; needs a copy call)</option><option value="move">Moved (original loses them)</option></select></div>
         <div class="ctl"><span class="ctl-l">Create new folders in</span><select id="spDest" class="sm" aria-label="Destination parent folder"><option value="">Same place as the folder</option><option value="inside">Inside the folder</option></select></div>
       </div>
       <div class="controls">
@@ -639,8 +640,8 @@
       <details class="adv" style="margin:8px 0"><summary>API mutations (create folder, copy)</summary>
         <div style="padding:0 20px 14px">
           <div class="hint">Used by Split selected. <code>{{name}}</code>, <code>{{parentId}}</code>, <code>{{ids}}</code> (comma-separated <code>{id: "..."}</code>) and <code>{{to}}</code> are filled in. The create mutation must return the new folder's <code>id</code>; the copy mutation must return the new items' <code>id</code>s in order. Adjust these if your Media Drive schema differs.</div>
-          <label class="hint">Create folder<textarea id="spMutCreate" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CreateFolder { saveFolder(name: {{name}}, parentId: {{parentId}}) { id parentId location name type } }</textarea></label>
-          <label class="hint">Copy items<textarea id="spMutCopy" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CopyItems { copy(copyItems: [{{ids}}], to: {id: {{to}}}) { id parentId location name } }</textarea></label>
+          <label class="hint">Create folder<textarea id="spMutCreate" autocomplete="off" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CreateFolder { saveFolder(name: {{name}}, parentId: {{parentId}}) { id parentId location name type } }</textarea></label>
+          <label class="hint">Copy items<textarea id="spMutCopy" autocomplete="off" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CopyItems { copy(copyItems: [{{ids}}], to: {id: {{to}}}) { id parentId location name } }</textarea></label>
         </div>
       </details>
       <div class="applybar">
@@ -2448,8 +2449,14 @@ $('btnSpApply').onclick=async()=>{
   const selG=SP.groups.filter(g=>SP.sel.has(g.id)); if(!selG.length) return;
   if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in Connect to split here, or export the CSV.'); return; }
   const n=selG.reduce((s,g)=>s+g.imgs.length,0);
-  if(!confirm(`Create ${selG.length} new folder(s) (${selG[0].name}${selG.length>1?' … '+selG[selG.length-1].name:''}) in ${folderPath(SP.parent)} and copy ${n} shot(s) into them?${S.demo?' (demo: nothing is sent)':''}\n\nThe original folder is not changed. Copies cannot be undone here.`)) return;
+  const mv0=$('spMode').value==='move'; if(!confirm(`Create ${selG.length} new folder(s) (${selG[0].name}${selG.length>1?' … '+selG[selG.length-1].name:''}) in ${folderPath(SP.parent)} and ${mv0?'MOVE':'copy'} ${n} shot(s) into them?${S.demo?' (demo: nothing is sent)':''}\n\n${mv0?'The shots leave their current folders.':'The original folder is not changed.'} This cannot be undone here.`)) return;
   const btns=['btnSpApply','btnSpFind','btnSpAll','btnSpNone']; btns.forEach(b=>$(b).disabled=true); $('spApplyStatus').style.display='block';
+  const moveMode=$('spMode').value==='move';
+  if(!S.demo){ // check the API has the calls before creating anything, so no empty folders are left behind
+    try{ const names=[ (/\{\s*(\w+)/.exec($('spMutCreate').value)||[])[1], moveMode?'move':(/\{\s*(\w+)/.exec($('spMutCopy').value)||[])[1] ];
+      const sc=await gql('{ __schema { mutationType { fields { name } } } }'); const have=new Set(sc.__schema.mutationType.fields.map(f=>f.name)), miss=names.filter(n=>!have.has(n));
+      if(miss.length){ setStatus('spApplyStatus',`Nothing was created. The Media Drive API has no "${miss.join('", "')}" mutation${miss.includes(names[1])&&!moveMode?' (it has no copy call: choose "Moved" instead, or edit the copy mutation under API mutations)':''}.`,'err'); btns.forEach(b=>$(b).disabled=false); $('btnSpFind').disabled=!S.images.length; spRender(); return; } }
+    catch(e){ /* introspection blocked: carry on and let the real calls report */ } }
   let made=0, copied=0; const doneIds=new Set();
   try{
     for(const g of selG){
@@ -2458,11 +2465,12 @@ $('btnSpApply').onclick=async()=>{
       S.folders.set(folder.id,{...folder,type:folder.type||'F'});
       for(let i=0;i<g.imgs.length;i+=50){ const chunk=g.imgs.slice(i,i+50);
         setStatus('spApplyStatus',`Copying ${copied+1}–${copied+chunk.length} of ${n} → ${g.name} …`);
-        const res=await spCopy(chunk.map(x=>x.id),folder.id);
-        res.forEach((r,j)=>{ const o=chunk[j]; S.images.push({...o, id:r.id, parentId:folder.id, location:r.location||o.location, _folderPath:folderPath(folder.id)}); });
+        if(moveMode){ await nbRunMoves(chunk.map(x=>({id:x.id,from:x.parentId,to:folder.id})),'image',[]); }
+        else { const res=await spCopy(chunk.map(x=>x.id),folder.id);
+          res.forEach((r,j)=>{ const o=chunk[j]; S.images.push({...o, id:r.id, parentId:folder.id, location:r.location||o.location, _folderPath:folderPath(folder.id)}); }); }
         copied+=chunk.length; }
       doneIds.add(g.id); }
-    setStatus('spApplyStatus',`Created ${made} folder(s) and copied ${copied} shot(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}. The original folder was left alone.`,'ok');
+    setStatus('spApplyStatus',`Created ${made} folder(s) and ${moveMode?'moved':'copied'} ${copied} shot(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}. ${moveMode?'The shots now sit in the new folders.':'The original folder was left alone.'}`,'ok');
   }catch(e){ let msg=e.message||String(e); if(/Failed to fetch|NetworkError/i.test(msg)) msg+='. The browser may be blocked by CORS: export the CSV instead.';
     setStatus('spApplyStatus',`Stopped after ${made} folder(s) and ${copied} shot(s): ${msg}\nFolders already created are kept; ones not finished are still in the list.`,'err'); }
   finally{ SP.groups=SP.groups.filter(g=>!doneIds.has(g.id)); doneIds.forEach(id=>SP.sel.delete(id)); btns.forEach(b=>$(b).disabled=false); $('btnSpFind').disabled=!S.images.length;
