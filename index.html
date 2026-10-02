@@ -940,6 +940,7 @@ $('btnCacheClear').onclick=async()=>{ if(!confirm('Remove every cached folder fr
 $('btnScanFresh').onclick=()=>scan({fresh:'all'});
 ['rootId','endpoint'].forEach(id=>$(id).addEventListener('input', ()=>{ clearTimeout(SC.t); SC.t=setTimeout(scRenderList,250); }));
 
+async function listSubfolderIds(parentId){ const d=await gql(`query sub { listSubfolders(parentId: ${JSON.stringify(parentId)}) { items { id } } }`); return (d.listSubfolders?.items||[]).map(x=>x.id); }
 async function scanRoot(id, seen, items, counts){ // walk one folder tree from Media Drive
   const root = await getItem(id);
   if(!root) throw new Error(`Folder ${id} not found (check the ID and that the token has access to this team).`);
@@ -949,8 +950,15 @@ async function scanRoot(id, seen, items, counts){ // walk one folder tree from M
     const f=queue.shift();
     setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … folders: ${counts.folders}, files: ${counts.files}`);
     let kids;
-    try{ kids = await listAll(childLocation(f), n=>setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … ${n} items so far (folders: ${counts.folders}, files: ${counts.files})`)); }
-    catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(`${(f.location||'')}/${f.id}`); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+    // Archive and Results folders keep a prefixed location ("archive#team/..."): list with the location as stored, and only
+    // try the "#"-to-"/" form when that finds nothing.
+    const rawLoc=(f.location?`${f.location}/`:'')+f.id, altLoc=childLocation(f), onPage=n=>setStatus('scanStatus',`Scanning "${root.name||id}": listing "${f.name||f.id}" … ${n} items so far (folders: ${counts.folders}, files: ${counts.files})`);
+    try{ kids = await listAll(rawLoc, onPage); if(!kids.length && altLoc!==rawLoc) kids = await listAll(altLoc, onPage); }
+    catch(e){ if(/Cancelled/.test(e.message)) throw e; try{ kids = await listAll(altLoc); }catch(e2){ throw new Error(`Listing folder ${f.name||f.id} failed: ${e.message}`); } }
+    // sub-folders that a location listing does not return (Archive, Results): ask for them by parent
+    try{ const have=new Set(kids.map(k=>k.id)), hidden=await listSubfolderIds(f.id);
+      for(const sid of hidden){ if(have.has(sid)||seen.has(sid)) continue; const it=await getItem(sid); if(it) kids.push(it); } }
+    catch(e){ if(/Cancelled/.test(e.message)) throw e; }
     for(const k of kids){ if(seen.has(k.id)) continue; seen.add(k.id); sub.push(k); if(isFolder(k)){ counts.folders++; queue.push(k); } else counts.files++; }
   }
   return sub;
