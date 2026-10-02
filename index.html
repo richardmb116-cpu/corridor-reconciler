@@ -977,7 +977,7 @@ async function scan(opts={}){
     const tops=items.filter(i=>i._isRoot).length, oldest=fromCache.length?Math.min(...fromCache.map(r=>r.scannedAt)):null;
     const how = !fromCache.length ? 'Scanned from Media Drive' : !fresh.length ? `Loaded from cache (scanned ${fmtAge(oldest)})` : `${fresh.length} scanned, ${fromCache.length} from cache`;
     const names=loaded.map(L=>L.name).join(', ');
-    setStatus('scanStatus',`${how}: ${names}. ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders.${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
+    setStatus('scanStatus',`${how}: ${names}. ${S.images.length.toLocaleString()} images (${S.images.filter(i=>i._lat!=null).length.toLocaleString()} with GPS) in ${S.folders.size.toLocaleString()} folders, down to ${Math.max(0,...[...S.folders.keys()].map(id=>folderAncestors(id).length))} level(s) deep (the scan follows every sub-folder to the last level).${fromCache.length?' Use "Rescan fresh" to pick up new uploads.':''}`,'ok');
     void tops;
   }catch(e){
     let msg = e.message||String(e);
