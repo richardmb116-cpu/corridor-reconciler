@@ -82,6 +82,11 @@ list which of their shots have a home to go to. Review, then **Move ticked shots
 Archive folders are also left out of Re-file and Merge: a pole folder holding an Archive is still a
 pole folder, and a folder that holds sub-folders (a feeder) is never moved as a pole.
 
+The **Site map** panel on the Corridor analysis tab also takes **reference overlays**: KML, KMZ or GeoJSON
+files (several at once) that are drawn on the corridor map in their own colours, with a show/hide tick,
+Zoom and Remove per file. Overlays are for reference only; they are not used as corridors (use the
+corridor upload for that) and are not kept between visits.
+
 ### Scan cache
 
 Each scanned folder's tree is kept in this browser (IndexedDB), so pressing **Scan** again loads it

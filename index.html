@@ -734,6 +734,10 @@
           <div><label>Site map JSON (*.sitemap.json)</label><input type="file" id="smFile" accept=".json,application/json"></div>
           <div><label>&nbsp;</label><button id="btnSmSave" disabled>Save georeferenced site map (JSON)</button></div>
         </div>
+        <div class="row" style="margin-top:8px">
+          <div><label>Reference overlays (KML, KMZ or GeoJSON), shown on the map above</label><input type="file" id="ovFile" accept=".kml,.kmz,.geojson,.json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" multiple></div>
+        </div>
+        <div id="ovList" class="hint">No overlays loaded. They are drawn on the map for reference only and are not used as corridors.</div>
         <div class="status" id="smStatus">No site map loaded.</div>
         <div class="smgrid" style="margin-top:8px">
           <div>
@@ -1339,12 +1343,12 @@ function ensureMap(){
   carto.addTo(S.map);
   L.control.layers({'Streets':carto,'Light grey':cartoLight,'Satellite':esriSat,'Topographic':esriTopo},null,{position:'topright'}).addTo(S.map);
   L.control.scale({imperial:false}).addTo(S.map);
-  S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
+  S.layers.ov=L.layerGroup().addTo(S.map); S.layers.corr=L.layerGroup().addTo(S.map); S.layers.pts=L.layerGroup().addTo(S.map); S.layers.gaps=L.layerGroup().addTo(S.map); S.layers.cp=L.layerGroup().addTo(S.map);
   S.map.on('click', e=>onMapClick(e.latlng));
 }
 function drawMap(){
   ensureMap(); if(!S.map) return; Object.values(S.layers).forEach(l=>l.clearLayers());
-  const bounds=[];
+  const bounds=[]; drawOverlays();
   for(const c of S.corridors){
     c.lines.forEach((line,li)=>{
       const br=c.bridged?.[li]||[];
@@ -1375,6 +1379,64 @@ function onMapClick(latlng){
   const cp=S.sm.controlPoints[S.pendingCP]; cp.lat=+latlng.lat.toFixed(7); cp.lng=+latlng.lng.toFixed(7);
   S.pendingCP=null; $('map').classList.remove('picking'); renderCP(); drawMap(); smDraw();
 }
+
+/* ---- Reference overlays: KML / KMZ / GeoJSON drawn on the corridor map ---- */
+const OV_COLORS=['#2865ca','#d27b30','#8a4fd0','#0f9d8a','#c2185b','#6b7280'];
+S.overlays=[];
+function kmlToGeoJson(doc){
+  const feats=[], num=t=>t.trim().split(/\s+/).filter(Boolean).map(c=>{ const a=c.split(',').map(Number); return [a[0],a[1]]; }).filter(c=>isFinite(c[0])&&isFinite(c[1]));
+  const kids=(el,tag)=>[...el.children].filter(c=>c.localName===tag), first=(el,tag)=>el.getElementsByTagName(tag)[0];
+  const geom=g=>{ switch(g.localName){
+    case 'Point': { const c=num(first(g,'coordinates')?.textContent||''); return c.length?{type:'Point',coordinates:c[0]}:null; }
+    case 'LineString': case 'LinearRing': { const c=num(first(g,'coordinates')?.textContent||''); return c.length>1?{type:'LineString',coordinates:c}:null; }
+    case 'Polygon': { const rings=[...g.getElementsByTagName('coordinates')].map(e=>num(e.textContent)).filter(r=>r.length>2); return rings.length?{type:'Polygon',coordinates:rings}:null; }
+    case 'MultiGeometry': { const gs=[...g.children].map(geom).filter(Boolean); return gs.length?{type:'GeometryCollection',geometries:gs}:null; }
+    default: return null; } };
+  for(const pm of doc.getElementsByTagName('Placemark')){
+    const g=[...pm.children].map(geom).find(Boolean); if(!g) continue;
+    feats.push({type:'Feature',properties:{name:kids(pm,'name')[0]?.textContent?.trim()||'',description:kids(pm,'description')[0]?.textContent?.trim()||''},geometry:g}); }
+  return {type:'FeatureCollection',features:feats};
+}
+async function loadOverlay(file){
+  let gj;
+  if(/\.(kml|kmz)$/i.test(file.name)){
+    let text;
+    if(/\.kmz$/i.test(file.name)){ const zip=await JSZip.loadAsync(file); const e=Object.values(zip.files).find(f=>/\.kml$/i.test(f.name)); if(!e) throw new Error('KMZ contains no .kml file'); text=await e.async('string'); }
+    else text=await file.text();
+    const doc=new DOMParser().parseFromString(text,'application/xml'); if(doc.querySelector('parsererror')) throw new Error('KML is not valid XML');
+    gj=kmlToGeoJson(doc);
+  } else {
+    const d=JSON.parse(await file.text());
+    if(d.kind==='sitemap'){ await loadSiteMap(file); return null; }
+    gj = d.type==='FeatureCollection' ? d : d.type==='Feature' ? {type:'FeatureCollection',features:[d]} : {type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:d}]};
+  }
+  if(!gj.features?.some(f=>f.geometry)) throw new Error('No geometry found');
+  const ov={id:'ov'+Date.now()+Math.random().toString(36).slice(2,6), name:file.name, gj, color:OV_COLORS[S.overlays.length%OV_COLORS.length], on:true};
+  S.overlays.push(ov); return ov;
+}
+function drawOverlays(){
+  if(!S.layers.ov) return;
+  for(const ov of S.overlays){ if(!ov.on) continue;
+    L.geoJSON(ov.gj,{ style:()=>({color:ov.color,weight:2.5,opacity:.9,fillColor:ov.color,fillOpacity:.12}),
+      pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#05081d',weight:1.5,fillColor:ov.color,fillOpacity:1}),
+      onEachFeature:(f,l)=>{ const n=f.properties?.name||f.properties?.Name; l.bindPopup(`<b>${esc(n||ov.name)}</b>${n?`<br><span class="hint">${esc(ov.name)}</span>`:''}${f.properties?.description?`<br>${esc(String(f.properties.description).slice(0,300))}`:''}`); } }).addTo(S.layers.ov); }
+}
+function ovBounds(ov){ try{ return L.geoJSON(ov.gj).getBounds(); }catch{ return null; } }
+function renderOverlays(){
+  const box=$('ovList');
+  box.innerHTML = S.overlays.length ? S.overlays.map(o=>{ const n=o.gj.features.length;
+    return `<div class="ovrow" data-ov="${o.id}" style="display:flex;align-items:center;gap:8px;padding:4px 0"><input type="checkbox" data-act="vis" ${o.on?'checked':''} aria-label="Show ${esc(o.name)}"><span style="width:12px;height:12px;border-radius:2px;background:${o.color};flex:none"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(o.name)} <span class="hint">(${n} feature${n===1?'':'s'})</span></span><button class="sm" data-act="zoom">Zoom</button><button class="sm" data-act="rm">Remove</button></div>`; }).join('')
+    : 'No overlays loaded. They are drawn on the map for reference only and are not used as corridors.';
+}
+$('ovList').addEventListener('click',e=>{ const row=e.target.closest('[data-ov]'); if(!row) return; const ov=S.overlays.find(o=>o.id===row.dataset.ov); if(!ov) return;
+  if(e.target.dataset.act==='rm'){ S.overlays=S.overlays.filter(o=>o!==ov); renderOverlays(); drawMap(); }
+  if(e.target.dataset.act==='zoom'){ const b=ovBounds(ov); if(b?.isValid()&&S.map){ S.map.invalidateSize(); S.map.fitBounds(b,{padding:[20,20]}); } } });
+$('ovList').addEventListener('change',e=>{ const row=e.target.closest('[data-ov]'); if(!row||e.target.dataset.act!=='vis') return; const ov=S.overlays.find(o=>o.id===row.dataset.ov); ov.on=e.target.checked; drawMap(); });
+$('ovFile').onchange=async e=>{ const files=[...e.target.files]; e.target.value=''; const errs=[]; let last=null;
+  for(const f of files){ try{ const ov=await loadOverlay(f); if(ov) last=ov; }catch(err){ errs.push(`${f.name}: ${err.message}`); } }
+  renderOverlays(); drawMap();
+  if(last){ const b=ovBounds(last); if(b?.isValid()&&S.map){ S.map.invalidateSize(); S.map.fitBounds(b,{padding:[20,20]}); } }
+  if(errs.length) $('ovList').insertAdjacentHTML('beforeend',`<div class="status err">${esc(errs.join('\n'))}</div>`); };
 
 /* =========================================================
    Site map: viewer, control points, georeferencing
