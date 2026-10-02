@@ -19,6 +19,26 @@ Open the hosted page (GitHub Pages, see below) or `index.html` locally, then:
 3. **Time window** (optional): catches images without GPS.
 4. **Target folders**: one per corridor. Run the analysis.
 
+### Organise a dump into captures
+
+The **Organise** tab takes a folder of loose images (pick it as the source; sub-folders optional)
+and splits it into **captures**: runs of consecutive shots from one drone with no gap over 120 s,
+staying within 50 m of where the run started, and, when camera pitch is available, starting at a
+nadir shot (pitch at or below -80°; the metadata field is found automatically or can be named).
+Captures whose centres are within 25 m are the same **structure**, so a structure shot on three
+missions shows as one structure with three visits. Visits are labelled to help decide whether they
+were really one capture: *probably the same capture (paused n min)*, *re-shot (new nadir start)*,
+*later the same day* or *separate mission*, and captures that do not begin with a nadir are marked.
+**Combine** a structure's visits, or **Merge selected** captures, where they were one capture, and
+leave any out with –.
+
+**Create folders and move** builds, inside a chosen folder, either a folder per structure with a
+sub-folder per visit, a folder per capture, or a folder per structure. Names come from editable
+templates (`{sid}`, `{date}`, `{time}`, `{n}`, `{visit}`, `{visits}`) and can be changed per row;
+existing folders with the same name are reused. Folder creation is not in the published Media Drive
+API notes, so the page tries the likely `createFolder` forms (as unleash-mover does) and stops with
+a clear message if none works. Moves can be undone; created folders are left in place.
+
 ### Fix misfiled images from their neighbours (no corridor needed)
 
 When shots were uploaded under the wrong mission, the images around them are usually right. After

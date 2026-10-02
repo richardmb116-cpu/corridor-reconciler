@@ -147,7 +147,7 @@
   .pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font:400 11px/1 var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .pill::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--cool-600)}
   .pill.on::before{background:var(--emerald-600);box-shadow:0 0 0 3px rgba(68,162,73,.25)}
-  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=check] [data-mode]:not([data-mode~=check]), body[data-mode=split] [data-mode]:not([data-mode~=split]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
+  body[data-mode=refile] [data-mode]:not([data-mode~=refile]), body[data-mode=merge] [data-mode]:not([data-mode~=merge]), body[data-mode=check] [data-mode]:not([data-mode~=check]), body[data-mode=organise] [data-mode]:not([data-mode~=organise]), body[data-mode=split] [data-mode]:not([data-mode~=split]), body[data-mode=corridor] [data-mode]:not([data-mode~=corridor]){display:none!important}
   main{grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px 24px 32px;align-items:start;min-height:calc(100vh - 56px)}
   .side{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;padding-bottom:2px}
   @media (max-width:980px){ main{grid-template-columns:minmax(0,1fr);padding:16px} .side{position:static;max-height:none} header{gap:12px;padding:0 16px} header .co{display:none} }
@@ -252,6 +252,17 @@
   .applybar{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px -20px -20px;padding:14px 20px;background:rgba(255,255,255,.97);border-top:1px solid var(--cool-200);border-radius:0 0 var(--radius-lg) var(--radius-lg);backdrop-filter:blur(4px)}
   .pendinfo{font-size:14px}
   .applybar + .status{margin-top:28px}
+  #orMap{height:clamp(380px,52vh,640px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
+  .orcap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;margin:2px 0;border:1px solid var(--cool-200);border-radius:var(--radius-md);background:var(--white)}
+  .orcap.on{border-color:var(--cobalt-500);background:var(--cobalt-50)} .orcap.off{opacity:.45}
+  .orcap input[type=checkbox]{margin:0}
+  .octime{font-size:12px;white-space:nowrap} .ocmeta{font-size:12px;color:var(--text-supporting);white-space:nowrap}
+  .orcap .ocname{margin-left:auto;width:auto;flex:1 1 200px;max-width:320px;padding:5px 8px;font-size:12px}
+  .osname{margin-top:6px;padding:5px 8px;font-size:12px;width:150px}
+  .sname{display:flex;align-items:center;gap:6px;font-size:14px} .sname .sw{width:10px;height:10px;border-radius:50%;margin:0;border:none}
+  #orTbl tbody tr{cursor:pointer}
+  details.orout{margin-top:14px}
+  .settings-pop.static{position:static;width:auto;box-shadow:none;margin-top:8px}
   #ckMap{height:clamp(360px,48vh,580px);border-radius:var(--radius-md);border:1px solid var(--cool-200)}
   .dot.ring.cand{border-color:var(--amber-600);border-style:dashed}
   .fname{font-size:13px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -300,6 +311,7 @@
     <h1>Media Drive Reconciler</h1>
   </div>
   <nav class="modetabs" aria-label="Mode">
+    <button data-go="organise">Organise</button>
     <button data-go="refile" class="active">Re-file</button>
     <button data-go="merge">Merge splits</button>
     <button data-go="split">Split folders</button>
@@ -711,6 +723,96 @@
       <div class="status" id="ckApplyStatus" style="display:none"></div>
     </section>
 
+    <section class="panel review" id="orPanel" data-mode="organise">
+      <div class="card-h">
+        <div>
+          <h2>Organise a dump into captures</h2>
+          <p>Splits a folder of loose images into captures by time and distance, links captures of the same structure from different missions, and creates a folder for each one.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="ctl" style="flex:1 1 320px;min-width:0"><span class="ctl-l">Source</span><select id="orSrc" style="flex:1;min-width:0"><option value="">(scan first)</option></select></div>
+        <label class="inl chk"><input type="checkbox" id="orDeep"> Include sub-folders</label>
+        <details class="settings">
+          <summary>Capture rules</summary>
+          <div class="settings-pop">
+            <div class="row">
+              <div><label for="orGap">New capture after a gap of (s)</label><input type="number" id="orGap" value="120" min="5" step="5"></div>
+              <div><label for="orMove">or a move of more than (m)</label><input type="number" id="orMove" value="50" min="1" step="5"></div>
+            </div>
+            <label for="orStruct">Same structure when captures are within (m)</label>
+            <input type="number" id="orStruct" value="25" min="1" step="5">
+            <label class="inl chk" style="margin-top:12px"><input type="checkbox" id="orDev" checked> Same drone only</label>
+            <label class="inl chk" style="margin-top:8px"><input type="checkbox" id="orNadir" checked> A nadir shot starts a new capture</label>
+            <div class="row">
+              <div><label for="orPitchKey">Camera pitch field</label><input type="text" id="orPitchKey" placeholder="auto (gimbalPitch, pitch…)"></div>
+              <div><label for="orNadirDeg">Nadir at or below (°)</label><input type="number" id="orNadirDeg" value="-80" max="0" min="-90" step="1"></div>
+            </div>
+            <div class="hint">A capture is a run of consecutive shots with no gap longer than the time above, staying within the distance of where it started, and (when camera pitch is available) beginning at a nadir shot. Captures whose centres are within the structure distance are the same structure; repeat visits are shown together so you can decide whether they were one capture or several.</div>
+          </div>
+        </details>
+        <button class="primary" id="btnOrFind" disabled>Find captures</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="orStImg">–</div><div class="l">Images in source</div></div>
+        <div class="stat"><div class="v" id="orStCap">–</div><div class="l">Captures</div></div>
+        <div class="stat"><div class="v" id="orStStr">–</div><div class="l">Structures</div></div>
+        <div class="stat bad"><div class="v" id="orStRev">–</div><div class="l">Visited more than once</div></div>
+        <div class="stat sel"><div class="v" id="orStSel">–</div><div class="l">Selected</div></div>
+      </div>
+      <div class="status quiet" id="orStatus">Scan Media Drive or load demo data first.</div>
+      <div class="mapwrap">
+        <div id="orMap"></div>
+        <div class="mapempty" id="orEmpty">
+          <div class="me-t">No images yet</div>
+          <div class="hint" style="margin:0">Connect and scan your folders, or try it with demo data.</div>
+          <button id="btnDemo5">Load demo data</button>
+        </div>
+      </div>
+      <div class="legend keys">
+        <span><span class="dot" style="background:#3182ed;opacity:.5;border-radius:3px"></span>Capture outline (one colour per structure)</span>
+        <span><span class="dot ring" style="border-style:dashed;border-color:#05081d"></span>Structure visited more than once</span>
+        <span><span class="dot ring sel"></span>Selected capture</span>
+        <span class="kbd-hint">Click an outline or a row to select a capture</span>
+      </div>
+      <div class="tblhead">
+        <div class="tabs" id="orViewTabs">
+          <button class="tab active" data-view="all">All structures <span id="orCntAll"></span></button>
+          <button class="tab" data-view="rev">Visited more than once <span id="orCntRev"></span></button>
+        </div>
+        <span class="spacer"></span>
+        <button class="sm" id="btnOrMerge" disabled title="Treat the selected captures as one capture">Merge selected</button>
+        <button class="sm" id="btnOrNone" disabled>Clear selection</button>
+      </div>
+      <div class="tablewrap"><table id="orTbl"><thead><tr><th>Structure</th><th>Visits</th><th>Captures and folder names</th></tr></thead><tbody><tr><td colspan="3" class="empty">Choose the source folder and press <b>Find captures</b>.</td></tr></tbody></table></div>
+      <details class="settings orout" id="orOut">
+        <summary>Folders to create</summary>
+        <div class="settings-pop static">
+          <div class="row">
+            <div><label for="orParent">Create them inside</label><select id="orParent"></select></div>
+            <div><label for="orLayout">Layout</label><select id="orLayout">
+              <option value="nested">A folder per structure, with a sub-folder per visit</option>
+              <option value="cap">A folder per capture</option>
+              <option value="struct">A folder per structure (all visits together)</option>
+            </select></div>
+          </div>
+          <div class="row">
+            <div><label for="orTplS">Structure folder name</label><input type="text" id="orTplS" value="Structure {sid}"></div>
+            <div><label for="orTplC">Capture folder name</label><input type="text" id="orTplC" value="{date} {time} ({n} shots)"></div>
+          </div>
+          <div class="hint">Fields: <span class="mono">{sid}</span> structure number, <span class="mono">{date}</span> <span class="mono">{time}</span> of the first shot, <span class="mono">{n}</span> shots, <span class="mono">{visit}</span> visit number, <span class="mono">{visits}</span> visits to that structure. Names can also be edited per row. Existing folders with the same name are reused.</div>
+        </div>
+      </details>
+      <div class="applybar">
+        <div id="orPendInfo" class="pendinfo">Nothing to create yet.</div>
+        <span class="spacer"></span>
+        <button class="link" id="btnOrCsv" disabled>Export plan (CSV)</button>
+        <button id="btnOrUndo" disabled>Undo last run</button>
+        <button class="primary" id="btnOrApply" disabled>Create folders and move</button>
+      </div>
+      <div class="status" id="orApplyStatus" style="display:none"></div>
+    </section>
+
     <section class="panel" data-mode="corridor">
       <div class="card-h"><div><h2>Corridor analysis</h2><p>Check images against a corridor line for misfiled shots and coverage gaps. Add corridors on the left, set their target folders, then run the analysis.</p></div></div>
       <div id="map"></div>
@@ -1025,7 +1127,7 @@ function ingest(items){
   }
   renderCorridors(); updateAnalyseBtn();
   $('btnSaveJson').disabled = !S.items.length;
-  drawMap(); nbReset(); mgReset(); spReset(); ckReset();
+  drawMap(); nbReset(); mgReset(); spReset(); ckReset(); orReset();
 }
 function folderPath(id){
   const parts=[]; let cur=S.folders.get(id); let guard=0;
@@ -1648,6 +1750,15 @@ $('btnDemo').onclick=()=>{
     items.push(mk('pole-A29-arch','Archive','pole-A29',0,0,t0,'F')); shots('pole-A29').slice(-2).forEach(i=>i.parentId='pole-A29-arch'); // 3 of 5, 2 in its Archive
     shots('pole-A34').slice(-1).forEach(i=>i.parentId='pole-A35');   // A-035 has 4, A-036 has 6
     shots('pole-A36').slice(0,1).forEach(i=>i.parentId='fA'); }      // A-037 has 4, one loose in the feeder
+  { items.push(mk('dump','Upload dump','site1',0,0,t0,'F')); let q=0;
+    const st=[0,1,2,3,4,5].map(i=>[lat0-0.012+i*0.0002, lng0+0.03+i*0.00075]); // six structures about 70 m apart
+    const shoot=(si,t,n,pauseAt)=>{ for(let k=0;k<n;k++){ const tt=t+k*8000+(pauseAt!=null&&k>=pauseAt?240000:0), [la,lo]=st[si];
+        const it=mk(`dmp${q}`,dji(tt,1000+q),'dump',la+(Math.random()-0.5)*0.00008,lo+(Math.random()-0.5)*0.0001,tt); it.metadata.gimbalPitch=k===0?-90:-30-Math.round(Math.random()*20); items.push(it); q++; }
+      return t+n*8000+(pauseAt!=null?240000:0); };
+    let t=t0+86400000;                                   // mission 1: all six, a pause at S5 and a re-shoot at S3
+    for(let si=0;si<6;si++){ t=shoot(si,t,7,si===4?3:null); if(si===2) t=shoot(si,t+8000,6); t+=90000; }
+    shoot(1,t0+2*86400000+3600000,12);                    // mission 2, next day: S2 again
+    t=t0+5*86400000+18000000; t=shoot(1,t,8)+90000; shoot(3,t,7); } // mission 3, days later: S2 and S4
   $('rootId').value='root'; S.demo=true; S.loadedRoots=[];
   ingest(items); cA.targetId='fA'; cB.targetId='fB'; renderCorridors();
   setStatus('scanStatus',`Demo data loaded: ${S.images.length} images in ${S.folders.size} folders. Nothing you do with it is sent to Media Drive.`,'ok');
@@ -2501,13 +2612,207 @@ $('btnCkUndo').onclick=async()=>{ if(!CK.last) return; const moves=CK.last.map(m
   const done=await ckRunMoves(moves,'Put back'); const back=new Set(done.map(d=>d.id)); CK.last=CK.last.filter(m=>!back.has(m.id)); if(!CK.last.length) CK.last=null; $('btnCkUndo').disabled=!CK.last; ckRun(); };
 
 /* =========================================================
+   Organise: split a dump of images into captures and structures, and folder them
+   ========================================================= */
+const OR = { map:null, layer:null, caps:[], structs:[], sel:new Set(), excl:new Set(), names:new Map(), view:'all', ran:false, fitted:false, limit:120, last:null, focus:null, seq:0 };
+function ensureOrMap(){
+  if(OR.map || typeof L==='undefined') return;
+  OR.map=L.map('orMap',{preferCanvas:true,maxZoom:21}).setView([35.2,-119.5],6);
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+  const streets=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Tiles &copy; Esri'});
+  sat.addTo(OR.map); L.control.layers({'Satellite':sat,'Streets':streets},null,{position:'topright'}).addTo(OR.map); L.control.scale({imperial:false}).addTo(OR.map);
+  OR.layer=L.layerGroup().addTo(OR.map);
+}
+function orFillSelects(){
+  const direct=new Map(); for(const im of S.images) direct.set(im.parentId,(direct.get(im.parentId)||0)+1);
+  const keepSrc=OR.srcId||$('orSrc').value, keepPar=$('orParent').value;
+  const srcs=[...direct].filter(([id])=>S.folders.has(id)).sort((a,b)=>b[1]-a[1]);
+  if(keepSrc && S.folders.has(keepSrc) && !direct.has(keepSrc)) srcs.unshift([keepSrc,0]); // keep the chosen source even while it is empty
+  $('orSrc').innerHTML = srcs.length ? srcs.map(([id,n])=>`<option value="${esc(id)}">${esc(folderPath(id))} (${n.toLocaleString()} images)</option>`).join('') : '<option value="">(scan first)</option>';
+  if(srcs.some(([id])=>id===keepSrc)) $('orSrc').value=keepSrc;
+  const all=[...S.folders.values()].map(f=>({id:f.id,path:folderPath(f.id)})).sort((a,b)=>a.path.localeCompare(b.path));
+  $('orParent').innerHTML=all.map(f=>`<option value="${esc(f.id)}">${esc(f.path)}</option>`).join('');
+  if(all.some(f=>f.id===keepPar)) $('orParent').value=keepPar; else if($('orSrc').value) $('orParent').value=$('orSrc').value;
+}
+function orReset(){ OR.srcId=null; OR.caps=[]; OR.structs=[]; OR.sel.clear(); OR.excl.clear(); OR.names.clear(); OR.ran=false; OR.fitted=false; OR.focus=null;
+  orFillSelects(); $('btnOrFind').disabled=!S.images.length; $('btnOrUndo').disabled=!OR.last; $('orApplyStatus').style.display='none';
+  setStatus('orStatus', S.images.length ? 'Choose the folder holding the dump, then press "Find captures".' : 'Scan Media Drive or load demo data first.');
+  orRender(); }
+// camera pitch from image metadata, if Media Drive provides it (field name configurable)
+const OR_PITCH_KEYS=['gimbalPitch','gimbalpitch','GimbalPitchDegree','gimbalPitchDegree','gimbal_pitch','cameraPitch','camerapitch','pitch'];
+function orPitch(im){ const md=im.metadata||{}, k=$('orPitchKey').value.trim(); for(const key of (k?[k]:OR_PITCH_KEYS)){ const v=md[key]; if(v!=null && v!=='' && Number.isFinite(parseFloat(v))) return parseFloat(v); } return null; }
+const orIsNadir = im => { const p=orPitch(im); return p!=null && p<=(+$('orNadirDeg').value||-80); };
+function orSource(){ const src=$('orSrc').value; if(!src) return []; return $('orDeep').checked ? S.images.filter(i=>isUnder(i.parentId,src)) : S.images.filter(i=>i.parentId===src); }
+function orCapStats(c){ const g=c.imgs.filter(i=>i._lat!=null);
+  c.t0=Math.min(...c.imgs.map(i=>nbShotTime(i))); c.t1=Math.max(...c.imgs.map(i=>nbShotTime(i)));
+  c.lat=g.length?g.reduce((s,i)=>s+i._lat,0)/g.length:null; c.lng=g.length?g.reduce((s,i)=>s+i._lng,0)/g.length:null;
+  c.spread=g.length&&c.lat!=null?Math.max(0,...g.map(i=>mgDist({_lat:c.lat,_lng:c.lng},i))):0; return c; }
+function orFind(){
+  const gap=Math.max(1,+$('orGap').value||120)*1000, mv=Math.max(1,+$('orMove').value||50), dev=$('orDev').checked;
+  const ims=orSource(), buckets=new Map(); let untimed=0;
+  const pitchKnown=ims.some(im=>orPitch(im)!=null), useNadir=$('orNadir').checked && pitchKnown;
+  for(const im of ims){ const t=nbShotTime(im); if(t==null){ untimed++; continue; } const k=dev?(im.deviceId||'?'):'*'; if(!buckets.has(k)) buckets.set(k,[]); buckets.get(k).push([t,im]); }
+  OR.caps=[];
+  for(const [k,list] of buckets){ list.sort((a,b)=>a[0]-b[0]); let cur=null;
+    for(const [t,im] of list){
+      const nadir=useNadir && orIsNadir(im);
+      // a nadir shot after some angled shots is the start of the next capture
+      const restart = nadir && cur && cur.imgs.some(x=>!orIsNadir(x));
+      if(!cur || restart || t-cur.last>gap || (cur.anchor && im._lat!=null && mgDist(cur.anchor,im)>mv)){ cur={id:'c'+(++OR.seq), dev:k, imgs:[], last:t, anchor:null, byNadir:!!restart}; OR.caps.push(cur); }
+      cur.imgs.push(im); cur.last=t; if(!cur.anchor && im._lat!=null) cur.anchor=im; } }
+  OR.caps.forEach(orCapStats); OR.useNadir=useNadir;
+  if(useNadir) OR.caps.forEach(c=>{ c.noNadir=!orIsNadir(c.imgs[0]); });
+  OR.untimed=untimed; OR.sel.clear(); OR.excl.clear(); OR.names.clear(); OR.ran=true; OR.focus=null;
+  orGroup();
+  const rev=OR.structs.filter(s=>s.caps.length>1).length;
+  setStatus('orStatus', OR.caps.length
+    ? `${ims.length.toLocaleString()} images form ${OR.caps.length.toLocaleString()} captures at ${OR.structs.length.toLocaleString()} structures; ${rev.toLocaleString()} structure(s) were captured more than once. Check the repeat visits: combine them where they were really one capture. Then set the folder layout and press Create folders and move.${untimed?`\n${untimed.toLocaleString()} image(s) have no capture time and were left out.`:''}${useNadir?`\nNadir shots mark the start of each capture; ${OR.caps.filter(c=>c.noNadir).length.toLocaleString()} capture(s) do not start with one.`:$('orNadir').checked?'\nNo camera-pitch data was found, so captures were split by time and distance only. If Media Drive has a gimbal pitch field, add it under Advanced and offline → Extra metadata fields, and under Capture rules.':''}`
+    : 'No images with a capture time in this folder.', OR.caps.length?'':'err');
+  orRender(); if(OR.map && $('orMap').offsetWidth){ const pts=OR.caps.filter(c=>c.lat!=null).map(c=>[c.lat,c.lng]); if(pts.length) OR.map.fitBounds(pts,{padding:[40,40],maxZoom:19}); }
+}
+// captures whose centres are within the structure distance belong to one structure (single-link)
+function orGroup(){
+  const SR=Math.max(1,+$('orStruct').value||25), par=new Map(OR.caps.map(c=>[c.id,c.id])), find=x=>{ while(par.get(x)!==x){ par.set(x,par.get(par.get(x))); x=par.get(x); } return x; };
+  const grid=new Map(), key=(x,y)=>x+','+y, P=c=>[Math.floor(c.lng*111320*Math.cos(c.lat*Math.PI/180)/SR), Math.floor(c.lat*110574/SR)];
+  for(const c of OR.caps){ if(c.lat==null) continue; const [x,y]=P(c);
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) for(const o of grid.get(key(x+dx,y+dy))||[]) if(mgDist({_lat:c.lat,_lng:c.lng},{_lat:o.lat,_lng:o.lng})<=SR) par.set(find(c.id),find(o.id));
+    const k=key(x,y); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push(c); }
+  const by=new Map(); for(const c of OR.caps){ const r=find(c.id); if(!by.has(r)) by.set(r,[]); by.get(r).push(c); }
+  OR.structs=[...by.values()].map(caps=>{ caps.sort((a,b)=>a.t0-b.t0); return {caps, t0:caps[0].t0}; }).sort((a,b)=>a.t0-b.t0);
+  OR.structs.forEach((s,i)=>{ s.sid=String(i+1).padStart(3,'0'); s.key='s'+s.sid; s.caps.forEach((c,j)=>{ c.sid=s.sid; c.visit=j+1; c.visits=s.caps.length; c.prevGap=j?c.t0-s.caps[j-1].t1:null; }); });
+}
+function orMergeCaps(ids){ const caps=OR.caps.filter(c=>ids.has(c.id)); if(caps.length<2) return;
+  const m=orCapStats({id:'c'+(++OR.seq), dev:caps[0].dev, imgs:caps.flatMap(c=>c.imgs).sort((a,b)=>nbShotTime(a)-nbShotTime(b))}); if(OR.useNadir) m.noNadir=!orIsNadir(m.imgs[0]);
+  OR.caps=[...OR.caps.filter(c=>!ids.has(c.id)), m]; OR.sel.clear(); OR.sel.add(m.id); orGroup(); orRender(); }
+const p2=v=>String(v).padStart(2,'0');
+const orDate=t=>{ const d=new Date(t); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }, orClock=t=>{ const d=new Date(t); return `${p2(d.getHours())}${p2(d.getMinutes())}`; };
+function orFill(tpl,c,s){ return tpl.replace(/\{(\w+)\}/g,(m,k)=>({sid:s.sid, date:orDate(c?c.t0:s.t0), time:(()=>{ const t=c?c.t0:s.t0, d=new Date(t); return `${p2(d.getHours())}.${p2(d.getMinutes())}`; })(), n:c?c.imgs.length:s.caps.reduce((a,x)=>a+x.imgs.length,0), visit:c?c.visit:'', visits:s.caps.length})[k] ?? m).replace(/[\/\\]+/g,'-').trim(); }
+const orSName = s => OR.names.get(s.key) ?? orFill($('orTplS').value, null, s);
+const orCName = (c,s) => OR.names.get(c.id) ?? orFill($('orTplC').value, c, s);
+function orVisitNote(c){ const nn = c.noNadir ? '<span class="badge b-warn" title="The first shot is not a nadir">no nadir start</span>' : '';
+  if(c.prevGap==null) return nn; const m=c.prevGap/60000;
+  if(c.byNadir && m<15) return nn+`<span class="badge b-info" title="Started with a new nadir shot ${Math.round(m*60)} s after the previous capture">re-shot (new nadir start)</span>`;
+  return nn+(m<15 ? `<span class="badge b-warn" title="Taken ${Math.round(m)} min after the previous visit">probably the same capture (paused ${Math.max(1,Math.round(m))} min)</span>` : `<span class="badge b-info" title="${(m/60).toFixed(1)} h after the previous visit">${m<1440?'later the same day':'separate mission'}</span>`); }
+// what would be created: [{path:[names], caps:[...], imgs:[...]}]
+function orPlan(){ const lay=$('orLayout').value, out=[];
+  for(const s of OR.structs){ const caps=s.caps.filter(c=>!OR.excl.has(c.id)); if(!caps.length) continue;
+    if(lay==='struct') out.push({path:[orSName(s)], imgs:caps.flatMap(c=>c.imgs)});
+    else for(const c of caps) out.push({path: lay==='nested' ? [orSName(s), orCName(c,s)] : [orCName(c,s)], imgs:c.imgs}); }
+  return out; }
+const orVisible = () => OR.view==='rev' ? OR.structs.filter(s=>s.caps.length>1) : OR.structs;
+function orRender(){
+  ensureOrMap(); const vis=orVisible();
+  if(OR.map){ OR.layer.clearLayers(); const bounds=[], src=new Set(orSource().map(i=>i.id));
+    if(!OR.ran) for(const im of S.images){ if(im._lat==null) continue; bounds.push([im._lat,im._lng]); L.circleMarker([im._lat,im._lng],{radius:3,color:'#fff',weight:.5,fillColor:src.has(im.id)?'#3182ed':'#c9cbd1',fillOpacity:.8,interactive:false}).addTo(OR.layer); }
+    for(const s of vis){ const col=nbColor(s.key);
+      if(s.caps.length>1){ const g=s.caps.filter(c=>c.lat!=null); if(g.length){ const lat=g.reduce((a,c)=>a+c.lat,0)/g.length, lng=g.reduce((a,c)=>a+c.lng,0)/g.length, r=Math.max(12,...g.map(c=>mgDist({_lat:lat,_lng:lng},{_lat:c.lat,_lng:c.lng})+c.spread))+6;
+        L.circle([lat,lng],{radius:r,color:'#05081d',weight:2,dashArray:'6 5',fill:false,interactive:false}).addTo(OR.layer); } }
+      for(const c of s.caps){ const pts=c.imgs.filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); if(!pts.length) continue; pts.forEach(p=>bounds.push(p));
+        const sel=OR.sel.has(c.id), foc=OR.focus===c.id, hull=orHull(pts);
+        const shape = hull.length>=3 ? L.polygon(hull,{color:sel?'#3182ed':col,weight:sel||foc?4:2,fillColor:col,fillOpacity:OR.excl.has(c.id)?.04:.18,dashArray:OR.excl.has(c.id)?'3 4':null})
+                                     : L.circle(pts[0],{radius:6,color:sel?'#3182ed':col,weight:sel?4:2,fillColor:col,fillOpacity:.18});
+        shape.bindTooltip(()=>`<b>Structure ${s.sid}</b> · visit ${c.visit} of ${c.visits}<br>${esc(nbTime(c.t0))} · ${c.imgs.length} shots over ${Math.round((c.t1-c.t0)/1000)} s<br>Folder: ${esc(orPlanName(c,s))}`,{sticky:true});
+        shape.on('click',()=>{ if(OR.sel.has(c.id)) OR.sel.delete(c.id); else OR.sel.add(c.id); OR.focus=c.id; orRender(); }).addTo(OR.layer);
+        for(const p of pts) L.circleMarker(p,{radius:3,color:'#fff',weight:.5,fillColor:col,fillOpacity:.95,interactive:false}).addTo(OR.layer); } }
+    if(bounds.length && !OR.fitted && $('orMap').offsetWidth){ OR.map.invalidateSize(); OR.map.fitBounds(bounds,{padding:[24,24],maxZoom:19}); OR.fitted=true; } }
+  const tb=$('orTbl').querySelector('tbody');
+  tb.innerHTML = vis.length ? vis.slice(0,OR.limit).map(s=>{
+    const caps=s.caps.map(c=>`<div class="orcap${OR.sel.has(c.id)?' on':''}${OR.excl.has(c.id)?' off':''}" data-c="${c.id}">
+        <input type="checkbox" data-act="sel" ${OR.sel.has(c.id)?'checked':''} title="Select (to merge)">
+        <span class="mono octime">${esc(nbTime(c.t0))}</span><span class="ocmeta">${c.imgs.length} shots · ${Math.max(1,Math.round((c.t1-c.t0)/1000))} s · ${Math.round(c.spread)} m</span>${orVisitNote(c)}
+        ${$('orLayout').value==='struct'?'':`<input type="text" class="sm ocname" data-act="cname" value="${esc(orCName(c,s))}" aria-label="Folder name">`}
+        <button class="icon" data-act="excl" title="${OR.excl.has(c.id)?'Include this capture':'Leave this capture out'}">${OR.excl.has(c.id)?'+':'–'}</button></div>`).join('');
+    return `<tr data-s="${s.key}"><td><div class="sname"><span class="sw" style="background:${nbColor(s.key)}"></span>${s.sid}</div>${$('orLayout').value!=='cap'?`<input type="text" class="sm osname" data-act="sname" value="${esc(orSName(s))}" aria-label="Structure folder name">`:''}</td>
+      <td>${s.caps.length>1?`<span class="badge b-bad">${s.caps.length} visits</span><button class="sm" data-act="combine" style="margin-top:6px;display:block">Combine</button>`:'<span class="badge b-idle">1</span>'}</td><td>${caps}</td></tr>`; }).join('')
+    : `<tr><td colspan="3" class="empty">${OR.ran?'Nothing in this list.':'Choose the source folder and press <b>Find captures</b>.'}</td></tr>`;
+  if(vis.length>OR.limit) tb.insertAdjacentHTML('beforeend',`<tr><td colspan="3" class="empty"><button class="sm" data-act="more">Show ${Math.min(120,vis.length-OR.limit)} more</button> <span class="hint">(${(vis.length-OR.limit).toLocaleString()} not shown)</span></td></tr>`);
+  const f=n=>S.images.length&&OR.ran?n.toLocaleString():'–', rev=OR.structs.filter(s=>s.caps.length>1).length;
+  $('orStImg').textContent=S.images.length?orSource().length.toLocaleString():'–'; $('orStCap').textContent=f(OR.caps.length); $('orStStr').textContent=f(OR.structs.length); $('orStRev').textContent=f(rev); $('orStSel').textContent=f(OR.sel.size);
+  $('orCntAll').textContent=OR.structs.length||''; $('orCntRev').textContent=rev||'';
+  $('orEmpty').style.display=S.images.length?'none':'flex';
+  const plan=OR.ran?orPlan():[], nImg=plan.reduce((a,p)=>a+p.imgs.length,0), nF=new Set(plan.flatMap(p=>p.path.map((_,i)=>p.path.slice(0,i+1).join('/')))).size;
+  $('orPendInfo').textContent = plan.length ? `${nF.toLocaleString()} folder(s) inside ${mgShort($('orParent').value)}, ${nImg.toLocaleString()} image(s) to move.` : 'Nothing to create yet.';
+  $('btnOrApply').disabled=!plan.length; $('btnOrCsv').disabled=!plan.length; $('btnOrMerge').disabled=OR.sel.size<2; $('btnOrNone').disabled=!OR.sel.size;
+}
+const orPlanName=(c,s)=>{ const lay=$('orLayout').value; return lay==='struct'?orSName(s):lay==='nested'?`${orSName(s)} / ${orCName(c,s)}`:orCName(c,s); };
+function orHull(pts){ // convex hull of [lat,lng] points (monotone chain on lng/lat)
+  const P=pts.map(([a,b])=>[b,a]).sort((p,q)=>p[0]-q[0]||p[1]-q[1]); if(P.length<3) return pts;
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]), lo=[], up=[];
+  for(const p of P){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); }
+  for(const p of P.slice().reverse()){ while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  const h=lo.slice(0,-1).concat(up.slice(0,-1)); return h.length>=3 ? h.map(([x,y])=>[y,x]) : pts; }
+$('orTbl').querySelector('tbody').addEventListener('click', e=>{ const act=e.target.dataset.act;
+  if(act==='more'){ OR.limit+=120; orRender(); return; }
+  const tr=e.target.closest('tr[data-s]'); if(!tr) return; const s=OR.structs.find(x=>x.key===tr.dataset.s), capEl=e.target.closest('.orcap'), c=capEl&&OR.caps.find(x=>x.id===capEl.dataset.c);
+  if(act==='combine'){ orMergeCaps(new Set(s.caps.map(x=>x.id))); return; }
+  if(act==='excl' && c){ if(OR.excl.has(c.id)) OR.excl.delete(c.id); else OR.excl.add(c.id); orRender(); return; }
+  if(e.target.closest('input')) return;
+  const pts=(c?[c]:s.caps).flatMap(x=>x.imgs).filter(i=>i._lat!=null).map(i=>[i._lat,i._lng]); OR.focus=c?.id||null;
+  if(pts.length && OR.map) OR.map.fitBounds(pts,{padding:[70,70],maxZoom:20}); orRender(); });
+$('orTbl').querySelector('tbody').addEventListener('change', e=>{ const act=e.target.dataset.act, tr=e.target.closest('tr[data-s]'); if(!tr) return;
+  const capEl=e.target.closest('.orcap');
+  if(act==='sel' && capEl){ if(e.target.checked) OR.sel.add(capEl.dataset.c); else OR.sel.delete(capEl.dataset.c); orRender(); }
+  if(act==='cname' && capEl){ OR.names.set(capEl.dataset.c, e.target.value.trim()); orRender(); }
+  if(act==='sname'){ OR.names.set(tr.dataset.s.replace(/^/,''), e.target.value.trim()); orRender(); } });
+document.querySelectorAll('#orViewTabs .tab').forEach(b=>b.onclick=()=>{ OR.view=b.dataset.view; OR.limit=120; document.querySelectorAll('#orViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); orRender(); });
+$('btnOrFind').onclick=orFind; $('btnDemo5').onclick=()=>$('btnDemo').click();
+$('btnOrMerge').onclick=()=>orMergeCaps(new Set(OR.sel)); $('btnOrNone').onclick=()=>{ OR.sel.clear(); orRender(); };
+['orSrc','orDeep'].forEach(id=>$(id).addEventListener('change',()=>{ OR.srcId=$('orSrc').value; OR.ran=false; OR.caps=[]; OR.structs=[]; OR.fitted=false; if(id==='orSrc') $('orParent').value=$('orSrc').value; orRender(); setStatus('orStatus','Press "Find captures".'); }));
+['orLayout','orParent'].forEach(id=>$(id).addEventListener('change',orRender));
+['orNadir','orPitchKey','orNadirDeg','orGap','orMove','orDev'].forEach(id=>$(id).addEventListener('change',()=>{ if(OR.ran) orFind(); }));
+['orTplS','orTplC'].forEach(id=>$(id).addEventListener('input',()=>{ clearTimeout(OR.t); OR.t=setTimeout(orRender,250); }));
+$('orStruct').addEventListener('change',()=>{ if(OR.ran){ orGroup(); orRender(); } });
+$('btnOrCsv').onclick=()=>{ const rows=orPlan().flatMap(p=>p.imgs.map(im=>({folder:[mgShort($('orParent').value),...p.path].join(' / '), id:im.id, name:im.name, current_folder:folderPath(im.parentId), shot_time:new Date(nbShotTime(im)).toISOString(), lat:im._lat??'', lng:im._lng??''})));
+  download(`organise-plan_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
+// Folder creation is not in the published Media Drive API notes, so try the likely shapes in turn (as unleash-mover does)
+const OR_FOLDER_MUTATIONS = [
+  (n,p) => `mutation { createFolder(folder: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}}) { id name location parentId } }`,
+  (n,p) => `mutation { createFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`,
+  (n,p) => `mutation { create(item: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}, type: "F"}) { id name location parentId } }`,
+  (n,p) => `mutation { addFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`,
+];
+async function orEnsureFolder(name, parent, created){
+  const hit=[...S.folders.values()].find(f=>f.parentId===parent && f.name===name); if(hit) return hit.id;
+  let f;
+  if(S.demo) f={id:'demo-f'+(++OR.seq), name, parentId:parent, type:'F', location:childLocation(S.folders.get(parent)||{id:parent}), metadata:{childItemsNumber:0}};
+  else { const errs=[];
+    for(const build of (OR.mutation?[OR.mutation]:OR_FOLDER_MUTATIONS)){ try{ const d=await gql(build(name,parent)); const c=d.createFolder||d.create||d.addFolder; if(c&&c.id){ OR.mutation=build; f={type:'F', metadata:{childItemsNumber:0}, location:childLocation(S.folders.get(parent)||{id:parent}), ...c, name:c.name||name, parentId:c.parentId||parent}; break; } }catch(e){ errs.push(e.message); } }
+    if(!f) throw new Error(`Could not create the folder "${name}": the Media Drive API's folder-creation call is not documented and none of the likely forms worked (${errs.join(' | ')}). Create the folders by hand and run again: existing folders with the same names are reused.`); }
+  S.items.push(f); S.folders.set(f.id,f); created.push(f); return f.id;
+}
+$('btnOrApply').onclick=async()=>{
+  const plan=orPlan(); if(!plan.length) return; const parent=$('orParent').value;
+  if(!S.demo && !$('pat').value.trim()){ alert('Enter your token in Connect to create folders here, or export the plan.'); return; }
+  const nImg=plan.reduce((a,p)=>a+p.imgs.length,0);
+  if(!confirm(`Create up to ${new Set(plan.flatMap(p=>p.path.map((_,i)=>p.path.slice(0,i+1).join('/')))).size} folder(s) inside "${folderPath(parent)}" and move ${nImg} image(s) into them?${S.demo?' (demo: nothing is sent)':''}\n\nFolders that already exist with the same name are reused. The moves can be undone; created folders are left in place.`)) return;
+  const btns=['btnOrApply','btnOrUndo','btnOrFind']; btns.forEach(b=>$(b).disabled=true); $('orApplyStatus').style.display='block';
+  const created=[], done=[];
+  try{
+    for(const [i,p] of plan.entries()){
+      setStatus('orApplyStatus',`Folder ${i+1} of ${plan.length}: ${p.path.join(' / ')} …`);
+      let at=parent; for(const name of p.path) at=await orEnsureFolder(name, at, created);
+      const moves=p.imgs.filter(im=>im.parentId!==at).map(im=>({id:im.id, from:im.parentId, to:at}));
+      if(moves.length) await nbRunMoves(moves,'image',done);
+    }
+    setStatus('orApplyStatus',`Created ${created.length} folder(s) and moved ${done.length} image(s)${S.demo?' (demo: nothing was sent to Media Drive)':''}.`,'ok');
+  }catch(e){ setStatus('orApplyStatus',`Stopped: ${e.message||e}\n${created.length} folder(s) created and ${done.length} image(s) moved so far (undo puts the images back).`,'err'); }
+  finally{ if(done.length||created.length) OR.last={moves:done, created}; btns.forEach(b=>$(b).disabled=false); $('btnOrUndo').disabled=!OR.last; mgAfterMove(); scSyncLoaded(); orFillSelects(); orRender(); }
+};
+$('btnOrUndo').onclick=async()=>{ if(!OR.last) return; const moves=OR.last.moves.map(m=>({id:m.id,from:m.to,to:m.from}));
+  if(!confirm(`Put ${moves.length} image(s) back where they were? The ${OR.last.created.length} folder(s) created are left in place (empty).`)) return;
+  $('orApplyStatus').style.display='block'; const done=[];
+  try{ await nbRunMoves(moves,'image',done); setStatus('orApplyStatus',`Put back ${done.length} image(s). ${OR.last.created.length} created folder(s) were left in place and are now empty.`,'ok'); OR.last=null; }
+  catch(e){ setStatus('orApplyStatus',`Stopped after ${done.length}: ${e.message||e}`,'err'); }
+  finally{ $('btnOrUndo').disabled=!OR.last; mgAfterMove(); scSyncLoaded(); orFillSelects(); if(OR.ran) orFind(); else orRender(); } };
+
+/* =========================================================
    UI shell: mode switch, stats, empty state, table views
    ========================================================= */
 function setMode(m){
   document.body.dataset.mode=m;
   document.querySelectorAll('.modetabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===m));
   try{ localStorage.setItem('mdr.mode',m); }catch{}
-  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); CK.map?.invalidateSize(); SP.map?.invalidateSize(); if(m==='split' && SP.map && !SP.fitted) spRender(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='check' && CK.map && !CK.fitted) ckRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
+  setTimeout(()=>{ S.map?.invalidateSize(); NB.map?.invalidateSize(); MG.map?.invalidateSize(); CK.map?.invalidateSize(); OR.map?.invalidateSize(); SP.map?.invalidateSize(); if(m==='split' && SP.map && !SP.fitted) spRender(); if(m==='organise' && OR.map && !OR.fitted) orRender(); if(m==='merge' && MG.map && !MG.fitted) mgRender(); if(m==='check' && CK.map && !CK.fitted) ckRender(); if(m==='corridor'){ if(typeof smResize==='function') smResize(); if(!S._fitted) drawMap(); } if(m==='refile' && NB.map && !NB.fitted) nbRender(); },0);
 }
 document.querySelectorAll('.modetabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.go));
 function nbStats(){
@@ -2528,13 +2833,13 @@ document.querySelectorAll('#nbViewTabs .tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nbViewTabs .tab').forEach(x=>x.classList.toggle('active',x===b)); NB.view=b.dataset.view; nbTable(); });
 $('btnDemo2').onclick=()=>$('btnDemo').click();
 document.addEventListener('click',e=>{ const d=document.querySelector('details.settings[open]'); if(d && !d.contains(e.target)) d.open=false; });
-{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['refile','merge','split','check','corridor'].includes(m)?m:'refile'); }
+{ let m='refile'; try{ m=localStorage.getItem('mdr.mode')||'refile'; }catch{} setMode(['organise','refile','merge','split','check','corridor'].includes(m)?m:'refile'); }
 
 /* =========================================================
    Wire up
    ========================================================= */
 $('btnScan').onclick=()=>scan(); $('btnCancel').onclick=()=>{S.cancel=true;}; $('btnAnalyse').onclick=analyse;
-ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); ensureCkMap(); nbStats(); mgRender(); ckRender(); scRenderList();
+ensureMap(); smResize(); ensureNbMap(); ensureMgMap(); ensureCkMap(); ensureOrMap(); nbStats(); mgRender(); ckRender(); orRender(); scRenderList();
 </script>
 </body>
 </html>
