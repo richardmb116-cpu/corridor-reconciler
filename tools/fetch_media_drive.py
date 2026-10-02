@@ -57,6 +57,8 @@ def is_folder(it):
         return True
     if t in ("I", "V", "IMAGE", "VIDEO"):
         return False
+    if t.startswith("IR_") or str(it.get("mimeType") or "").lower().startswith(("image/", "video/")) or it.get("s3Path"):
+        return False  # thermal (IR_I) and any file with a stored object are files, whatever their child count
     md = it.get("metadata") or {}
     if md.get("childItemsNumber") is not None:
         return True

@@ -964,6 +964,7 @@ function isFolder(it){
   const t = String(it.type||'').toUpperCase();
   if (['F','D','FOLDER','DIR','DIRECTORY'].includes(t)) return true;
   if (t==='I'||t==='V'||t==='IMAGE'||t==='VIDEO') return false;
+  if (/^IR_/.test(t) || /^(image|video)\//i.test(it.mimeType||'') || it.s3Path) return false; // thermal (IR_I) and any file with a stored object are files, whatever their child count
   if (it.metadata && it.metadata.childItemsNumber!=null) return true;
   return !it.mimeType && !it.s3Path;
 }
