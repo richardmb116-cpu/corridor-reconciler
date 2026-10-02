@@ -639,7 +639,7 @@
       <details class="adv" style="margin:8px 0"><summary>API mutations (create folder, copy)</summary>
         <div style="padding:0 20px 14px">
           <div class="hint">Used by Split selected. <code>{{name}}</code>, <code>{{parentId}}</code>, <code>{{ids}}</code> (comma-separated <code>{id: "..."}</code>) and <code>{{to}}</code> are filled in. The create mutation must return the new folder's <code>id</code>; the copy mutation must return the new items' <code>id</code>s in order. Adjust these if your Media Drive schema differs.</div>
-          <label class="hint">Create folder<textarea id="spMutCreate" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CreateFolder { createFolder(item: {name: {{name}}, parentId: {{parentId}}}) { id parentId location name type } }</textarea></label>
+          <label class="hint">Create folder<textarea id="spMutCreate" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CreateFolder { saveFolder(name: {{name}}, parentId: {{parentId}}) { id parentId location name type } }</textarea></label>
           <label class="hint">Copy items<textarea id="spMutCopy" rows="2" style="width:100%;font-family:var(--font-mono,monospace);font-size:12px">mutation CopyItems { copy(copyItems: [{{ids}}], to: {id: {{to}}}) { id parentId location name } }</textarea></label>
         </div>
       </details>
@@ -2766,6 +2766,7 @@ $('btnOrCsv').onclick=()=>{ const rows=orPlan().flatMap(p=>p.imgs.map(im=>({fold
   download(`organise-plan_${stamp()}.csv`, csv(Object.keys(rows[0]),rows),'text/csv'); };
 // Folder creation is not in the published Media Drive API notes, so try the likely shapes in turn (as unleash-mover does)
 const OR_FOLDER_MUTATIONS = [
+  (n,p) => `mutation { saveFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`, // the API's real call (schema: saveFolder(name, parentId, location))
   (n,p) => `mutation { createFolder(folder: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}}) { id name location parentId } }`,
   (n,p) => `mutation { createFolder(name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}) { id name location parentId } }`,
   (n,p) => `mutation { create(item: {name: ${JSON.stringify(n)}, parentId: ${JSON.stringify(p)}, type: "F"}) { id name location parentId } }`,
@@ -2776,7 +2777,7 @@ async function orEnsureFolder(name, parent, created){
   let f;
   if(S.demo) f={id:'demo-f'+(++OR.seq), name, parentId:parent, type:'F', location:childLocation(S.folders.get(parent)||{id:parent}), metadata:{childItemsNumber:0}};
   else { const errs=[];
-    for(const build of (OR.mutation?[OR.mutation]:OR_FOLDER_MUTATIONS)){ try{ const d=await gql(build(name,parent)); const c=d.createFolder||d.create||d.addFolder; if(c&&c.id){ OR.mutation=build; f={type:'F', metadata:{childItemsNumber:0}, location:childLocation(S.folders.get(parent)||{id:parent}), ...c, name:c.name||name, parentId:c.parentId||parent}; break; } }catch(e){ errs.push(e.message); } }
+    for(const build of (OR.mutation?[OR.mutation]:OR_FOLDER_MUTATIONS)){ try{ const d=await gql(build(name,parent)); const c=d.saveFolder||d.createFolder||d.create||d.addFolder; if(c&&c.id){ OR.mutation=build; f={type:'F', metadata:{childItemsNumber:0}, location:childLocation(S.folders.get(parent)||{id:parent}), ...c, name:c.name||name, parentId:c.parentId||parent}; break; } }catch(e){ errs.push(e.message); } }
     if(!f) throw new Error(`Could not create the folder "${name}": the Media Drive API's folder-creation call is not documented and none of the likely forms worked (${errs.join(' | ')}). Create the folders by hand and run again: existing folders with the same names are reused.`); }
   S.items.push(f); S.folders.set(f.id,f); created.push(f); return f.id;
 }
